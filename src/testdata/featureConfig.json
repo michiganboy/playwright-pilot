@@ -1,0 +1,19 @@
+{
+  "enrollment": {
+    "tag": "@enrollment",
+    "planId": 101,
+    "suites": [1001]
+  },
+  "appointments": {
+    "tag": "@appointments",
+    "planId": 102,
+    "suites": [2002]
+  },
+  "sitemanager": {
+    "tag": "@sitemanager",
+    "planId": 103,
+    "suites": [3003]
+  }
+}
+
+
