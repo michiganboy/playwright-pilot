@@ -1,0 +1,208 @@
+{
+  "config": {
+    "configFile": "C:\\Users\\James\\Workspaces\\playwright-pilot\\playwright.config.ts",
+    "rootDir": "C:/Users/James/Workspaces/playwright-pilot/tests",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": "C:\\Users\\James\\Workspaces\\playwright-pilot\\global-teardown.ts",
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "html",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "playwright-report.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "C:/Users/James/Workspaces/playwright-pilot/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "C:/Users/James/Workspaces/playwright-pilot/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.57.0",
+    "workers": 8,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "e2e\\authentication\\AUTH-9-User Authentication Flow.spec.ts",
+      "file": "e2e/authentication/AUTH-9-User Authentication Flow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "AUTH-9 - User Authentication Flow @authentication",
+          "file": "e2e/authentication/AUTH-9-User Authentication Flow.spec.ts",
+          "line": 7,
+          "column": 6,
+          "specs": [
+            {
+              "title": "[8] Verify user is able to login with valid credentials",
+              "ok": true,
+              "tags": [
+                "authentication"
+              ],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2981,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "steps": [
+                        {
+                          "title": "Navigate to login page",
+                          "duration": 256
+                        },
+                        {
+                          "title": "Locate the Email field and enter a valid email address",
+                          "duration": 35
+                        },
+                        {
+                          "title": "Locate the Password field and enter a valid password",
+                          "duration": 6
+                        },
+                        {
+                          "title": "Click the Login button",
+                          "duration": 38
+                        },
+                        {
+                          "title": "Verify the user is logged in",
+                          "duration": 2600
+                        }
+                      ],
+                      "startTime": "2025-12-04T07:06:37.549Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "0c2d0c8de55692a0685b-cbd78028e788af0da313",
+              "file": "e2e/authentication/AUTH-9-User Authentication Flow.spec.ts",
+              "line": 8,
+              "column": 13
+            },
+            {
+              "title": "[10] Verify user is not able to login with invalid credentials",
+              "ok": true,
+              "tags": [
+                "authentication"
+              ],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 697,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "steps": [
+                        {
+                          "title": "Navigate to login page",
+                          "duration": 268
+                        },
+                        {
+                          "title": "Locate the Email field and enter an invalid email address",
+                          "duration": 34
+                        },
+                        {
+                          "title": "Locate the Password field and enter an invalid password",
+                          "duration": 6
+                        },
+                        {
+                          "title": "Click the Login button",
+                          "duration": 43
+                        },
+                        {
+                          "title": "Verify the user is not logged in",
+                          "duration": 307
+                        }
+                      ],
+                      "startTime": "2025-12-04T07:06:40.591Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "0c2d0c8de55692a0685b-6079c1d7d2154b895acd",
+              "file": "e2e/authentication/AUTH-9-User Authentication Flow.spec.ts",
+              "line": 43,
+              "column": 13
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-12-04T07:06:36.961Z",
+    "duration": 4376.86,
+    "expected": 2,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

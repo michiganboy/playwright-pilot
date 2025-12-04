@@ -200,7 +200,9 @@ function flattenPlaywrightJson(json: any): PlaywrightTestResult[] {
 }
 
 function extractFeatureFromPath(filePath: string): string | null {
-  const match = filePath.match(/tests\/e2e\/([^\/]+)\//);
+  // Normalize path separators so regex works on Windows and POSIX paths
+  const normalizedPath = filePath.replace(/\\/g, "/");
+  const match = normalizedPath.match(/tests\/e2e\/([^\/]+)\//);
   if (!match) {
     return null;
   }
@@ -266,7 +268,7 @@ async function createTestRun(
     throw new Error(`Failed to create test run: ${response.status} ${errorText}`);
   }
 
-  const data = await response.json();
+  const data = (await response.json()) as { id: number };
   return data.id;
 }
 

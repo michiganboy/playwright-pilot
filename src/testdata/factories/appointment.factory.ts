@@ -20,7 +20,7 @@ export function createAppointment(overrides?: Partial<models.Appointment>) {
   return {
     ...appointment,
     async save<K extends keyof DataStoreMap>(key: K): Promise<models.Appointment> {
-      await save(key, appointment as DataStoreMap[K]);
+      await save(key, appointment as unknown as DataStoreMap[K]);
       return appointment;
     },
   };

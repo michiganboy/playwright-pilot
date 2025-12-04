@@ -1,8 +1,8 @@
 {
-  "enrollment": {
-    "tag": "@enrollment",
-    "planId": 101,
-    "suites": [1001]
+  "authentication": {
+    "tag": "@authentication",
+    "planId": 2,
+    "suites": [7]
   },
   "appointments": {
     "tag": "@appointments",

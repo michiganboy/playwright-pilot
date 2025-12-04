@@ -4,6 +4,7 @@ import { EnrollmentPage } from "../../src/pages/enrollment/EnrollmentPage";
 import { AppointmentPage } from "../../src/pages/appointments/AppointmentPage";
 import { SiteManagerPage } from "../../src/pages/sitemanager/SiteManagerPage";
 import { LoginPage } from "../../src/pages/login/LoginPage";
+import { DashboardPage } from "../../src/pages/dashboard/DashboardPage";
 import { GlobalActions } from "../../src/utils/globalActions";
 
 type Fixtures = {
@@ -11,6 +12,7 @@ type Fixtures = {
   appointmentPage: AppointmentPage;
   siteManagerPage: SiteManagerPage;
   loginPage: LoginPage;
+  dashboardPage: DashboardPage;
   globalActions: GlobalActions;
 };
 
@@ -26,6 +28,9 @@ export const test = base.extend<Fixtures>({
   },
   loginPage: async ({ page }, use) => {
     await use(new LoginPage(page));
+  },
+  dashboardPage: async ({ page }, use) => {
+    await use(new DashboardPage(page));
   },
   globalActions: async ({ page }, use) => {
     await use(new GlobalActions(page));

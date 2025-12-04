@@ -3,6 +3,9 @@ import { test } from "../../fixtures/test-fixtures";
 
 test.describe.serial("SM-201 - Site manager dashboard @sitemanager", () => {
   test("[40001] view dashboard", async ({ siteManagerPage }) => {
+    await test.step("Navigate to the docs site", async () => {
+      // ... actions for navigating and clicking ...
+    });
     await siteManagerPage.navigateToDashboard();
   });
 
@@ -11,4 +14,3 @@ test.describe.serial("SM-201 - Site manager dashboard @sitemanager", () => {
     await siteManagerPage.viewSiteDetails("site-001");
   });
 });
-

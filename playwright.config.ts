@@ -1,8 +1,9 @@
 // Playwright configuration for tests, reporters, and global settings.
 import { defineConfig } from "@playwright/test";
-import { config } from "dotenv";
+import dotenv from "dotenv";
+import path from "path";
 
-config();
+dotenv.config({ path: path.resolve(__dirname, ".env") });
 
 const reporters: any[] = [
   ["list"],
