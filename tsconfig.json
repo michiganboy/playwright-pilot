@@ -12,6 +12,6 @@
     "outDir": "./dist",
     "rootDir": "."
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "global-teardown.ts", "playwright.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "tests/**/*.ts", "global-teardown.ts", "playwright.config.ts", "src/integrations/**/*.ts"]
 }
 

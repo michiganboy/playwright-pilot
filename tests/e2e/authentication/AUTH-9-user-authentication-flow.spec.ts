@@ -1,10 +1,8 @@
 // Tests the authentication flow.
 import { expect, test } from "../../fixtures/test-fixtures";
-import * as factories from "../../../src/testdata/factories";
-import { load } from "../../../src/utils/dataStore";
 
 test.describe
-    .serial("AUTH-9 - User Authentication Flow @authentication", () => {
+    .serial("User Authentication Flow @authentication", () => {
         test("[8] Verify user is able to login with valid credentials", async ({
             loginPage,
             dashboardPage,

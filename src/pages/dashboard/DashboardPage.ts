@@ -4,8 +4,8 @@ import type { Page } from "@playwright/test";
 // Encapsulates interactions with the dashboard UI.
 export class DashboardPage {
   private locators = {
-    dashboardContainer: '[data-testid="dashboard"]',
-    welcomeMessage: '//p[contains(text(),"Welcome back")]',
+    dashboardContainer: '[data-testid="page-dashboard"]',
+    welcomeMessage: '[data-testid="dashboard-welcome"]',
     statsCard: '[data-testid="stats-card"]',
     navigationMenu: '[data-testid="navigation-menu"]',
     userProfileButton: '[data-testid="user-profile"]',

@@ -4,10 +4,10 @@ import type { Page } from "@playwright/test";
 // Encapsulates interactions with the login form.
 export class LoginPage {
   private locators = {
-    emailField: '[id="email"]',
-    passwordField: '[id="password"]',
-    loginButton: '[type="submit"]',
-    errorMessage: '//*[contains(text(),"Invalid login credentials")]',
+    emailField: '[data-testid="input-email"]',
+    passwordField: '[data-testid="input-password"]',
+    loginButton: '[data-testid="btn-submit-login"]',
+    errorMessage: '[data-testid="login-error"]',
   };
 
   constructor(private page: Page) { }

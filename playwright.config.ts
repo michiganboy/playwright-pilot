@@ -6,8 +6,7 @@ import path from "path";
 dotenv.config({ path: path.resolve(__dirname, ".env") });
 
 const reporters: any[] = [
-  ["list"],
-  ["html"],
+  ["./src/utils/custom-list-reporter.ts"],
   ["json", { outputFile: "playwright-report.json" }],
 ];
 

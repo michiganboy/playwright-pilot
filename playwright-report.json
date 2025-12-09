@@ -16,11 +16,7 @@
     "preserveOutput": "always",
     "reporter": [
       [
-        "list",
-        null
-      ],
-      [
-        "html",
+        "C:\\Users\\James\\Workspaces\\playwright-pilot\\src\\utils\\custom-list-reporter.ts",
         null
       ],
       [
@@ -63,16 +59,16 @@
   },
   "suites": [
     {
-      "title": "e2e\\authentication\\AUTH-9-User Authentication Flow.spec.ts",
-      "file": "e2e/authentication/AUTH-9-User Authentication Flow.spec.ts",
+      "title": "e2e\\authentication\\AUTH-9-user-authentication-flow.spec.ts",
+      "file": "e2e/authentication/AUTH-9-user-authentication-flow.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "AUTH-9 - User Authentication Flow @authentication",
-          "file": "e2e/authentication/AUTH-9-User Authentication Flow.spec.ts",
-          "line": 7,
+          "title": "User Authentication Flow @authentication",
+          "file": "e2e/authentication/AUTH-9-user-authentication-flow.spec.ts",
+          "line": 5,
           "column": 6,
           "specs": [
             {
@@ -93,7 +89,7 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2981,
+                      "duration": 5269,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
@@ -101,7 +97,7 @@
                       "steps": [
                         {
                           "title": "Navigate to login page",
-                          "duration": 256
+                          "duration": 308
                         },
                         {
                           "title": "Locate the Email field and enter a valid email address",
@@ -113,14 +109,14 @@
                         },
                         {
                           "title": "Click the Login button",
-                          "duration": 38
+                          "duration": 31
                         },
                         {
                           "title": "Verify the user is logged in",
-                          "duration": 2600
+                          "duration": 4841
                         }
                       ],
-                      "startTime": "2025-12-04T07:06:37.549Z",
+                      "startTime": "2025-12-09T13:31:51.648Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -128,9 +124,9 @@
                   "status": "expected"
                 }
               ],
-              "id": "0c2d0c8de55692a0685b-cbd78028e788af0da313",
-              "file": "e2e/authentication/AUTH-9-User Authentication Flow.spec.ts",
-              "line": 8,
+              "id": "163772b63a198d3801b1-f420a5a4e5e5e79a511a",
+              "file": "e2e/authentication/AUTH-9-user-authentication-flow.spec.ts",
+              "line": 6,
               "column": 13
             },
             {
@@ -151,7 +147,7 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 697,
+                      "duration": 666,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
@@ -159,26 +155,26 @@
                       "steps": [
                         {
                           "title": "Navigate to login page",
-                          "duration": 268
+                          "duration": 252
                         },
                         {
                           "title": "Locate the Email field and enter an invalid email address",
-                          "duration": 34
+                          "duration": 35
                         },
                         {
                           "title": "Locate the Password field and enter an invalid password",
-                          "duration": 6
+                          "duration": 5
                         },
                         {
                           "title": "Click the Login button",
-                          "duration": 43
+                          "duration": 34
                         },
                         {
                           "title": "Verify the user is not logged in",
-                          "duration": 307
+                          "duration": 303
                         }
                       ],
-                      "startTime": "2025-12-04T07:06:40.591Z",
+                      "startTime": "2025-12-09T13:31:56.978Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -186,9 +182,9 @@
                   "status": "expected"
                 }
               ],
-              "id": "0c2d0c8de55692a0685b-6079c1d7d2154b895acd",
-              "file": "e2e/authentication/AUTH-9-User Authentication Flow.spec.ts",
-              "line": 43,
+              "id": "163772b63a198d3801b1-2a1718323cf2ff392778",
+              "file": "e2e/authentication/AUTH-9-user-authentication-flow.spec.ts",
+              "line": 41,
               "column": 13
             }
           ]
@@ -198,8 +194,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-12-04T07:06:36.961Z",
-    "duration": 4376.86,
+    "startTime": "2025-12-09T13:31:51.088Z",
+    "duration": 6620.2,
     "expected": 2,
     "skipped": 0,
     "unexpected": 0,
