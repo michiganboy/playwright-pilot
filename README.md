@@ -129,6 +129,274 @@ npm run sync:ado
 # Syncs automatically after each test run
 ```
 
+## Pilot CLI
+
+The `pilot` CLI tool automates framework scaffolding and maintenance, ensuring consistent wiring across the codebase.
+
+### Getting Help
+
+```bash
+# Show general help
+npm run pilot -- --help
+# or
+npm run pilot help
+
+# Show help for a specific command
+npm run pilot add:feature --help
+```
+
+### Creating Features
+
+Features define ADO mapping, tags, and test folder scaffolding. ADO plan ID and suite IDs are required.
+
+```bash
+# Create a feature (will prompt for planId and suites if not provided)
+npm run pilot add:feature "User Management"
+
+# Create a feature with all options
+npm run pilot add:feature "User Management" --plan-id 105 --suites "5005,5006"
+
+# The command will:
+# - Normalize the name to a safe key (e.g., "user-management")
+# - Add entry to src/testdata/featureConfig.json
+# - Create tests/e2e/user-management/ directory
+# - Create an initial spec file with proper imports and structure
+# - Optionally create a matching page object if one doesn't exist
+```
+
+**Feature Creation Flow:**
+1. Normalizes the feature name to a safe kebab-case key
+2. Prompts for Azure DevOps Plan ID if not provided via `--plan-id`
+3. Prompts for Azure DevOps Suite IDs (comma-separated) if not provided via `--suites`
+4. Checks for existing pages matching the feature name
+5. If matching pages found, asks if you want to use them as the primary page object
+6. If no matching pages, optionally prompts to create a new page
+7. Creates the test directory and initial spec file
+8. Adds the feature configuration to `featureConfig.json`
+
+**Example Output:**
+```
+  Normalized feature name: "User Management" → "user-management"
+✓ Created feature: user-management
+✓ Added to featureConfig.json
+✓ Created test directory: tests/e2e/user-management
+✓ Created initial spec: USER-101-user-management.spec.ts
+```
+
+### Creating Pages
+
+Pages can be created independently or as part of feature creation.
+
+```bash
+# Create a page (uses page name as feature key for directory)
+npm run pilot add:page "UserProfile"
+
+# Create a page under a specific feature
+npm run pilot add:page "UserProfile" --feature "user-management"
+
+# The command will:
+# - Create src/pages/<featureKey>/<PageName>Page.ts
+# - Automatically wire it into tests/fixtures/test-fixtures.ts:
+#   * Add import statement
+#   * Add entry to Fixtures type
+#   * Add entry to base.extend
+```
+
+**Page Template Includes:**
+- Placeholder locators with data-testid selectors
+- Example methods (navigate, open, actions)
+- Health check method for verifying key elements
+
+**Example Output:**
+```
+  Normalized page name: "UserProfile" → "user-profile"
+✓ Created page: src/pages/user-profile/UserProfilePage.ts
+✓ Wired fixture: userProfilePage
+```
+
+### Creating Specs
+
+Add additional spec files to existing features.
+
+```bash
+# Create a spec under an existing feature
+npm run pilot add:spec "User Login Flow" --feature "user-management"
+
+# The command will:
+# - Verify the feature exists in featureConfig.json
+# - Create a new spec file in tests/e2e/<featureKey>/
+# - Use the same template conventions as feature creation
+# - Auto-detect page fixtures for the feature
+```
+
+**Spec Template Includes:**
+- Required imports (test-fixtures, factories, dataStore)
+- `test.describe.serial` with feature tag
+- Header comment with feature key, tag, ADO plan ID, and suite IDs
+- Example test steps using factories and dataStore
+- Proper factory/save/load pattern matching existing specs
+
+**Example Output:**
+```
+✓ Created spec: tests/e2e/user-management/USER-102-user-login-flow.spec.ts
+```
+
+### Creating Factories
+
+Data factories follow the existing pattern with faker and save methods.
+
+```bash
+# Create a factory
+npm run pilot add:factory "Product"
+
+# The command will:
+# - Create src/testdata/factories/product.factory.ts
+# - Add export to src/testdata/factories/index.ts
+```
+
+**Factory Template Includes:**
+- Faker imports and model typing
+- `create<ModelName>()` function with overrides parameter
+- `.save()` method with DataStoreMap typing
+- Placeholder fields that you can customize
+
+**Example Output:**
+```
+  Normalized model name: "Product" → "product"
+✓ Created factory: src/testdata/factories/product.factory.ts
+✓ Added export to src/testdata/factories/index.ts
+```
+
+### Deleting Resources
+
+All delete operations require typed confirmation and check for references.
+
+#### Delete Feature
+
+```bash
+# Delete a feature (removes test folder and config entry, but NOT pages)
+npm run pilot delete:feature "user-management"
+
+# You must type exactly: "delete user-management"
+```
+
+**Safety Checks:**
+- Requires typed confirmation matching the feature key
+- Deletes test directory and featureConfig.json entry
+- **Does NOT delete pages** (pages are global and may be used elsewhere)
+
+#### Delete Page
+
+```bash
+# Delete a page (removes file and unwires fixtures)
+npm run pilot delete:page "UserProfile"
+
+# You must type exactly: "delete page user-profile"
+```
+
+**Safety Checks:**
+- Blocks deletion if the page fixture is referenced in any `tests/**/*.spec.ts` files
+- Requires typed confirmation: `delete page <normalized-name>`
+- Removes the page file and all fixture wiring from `test-fixtures.ts`
+
+#### Delete Factory
+
+```bash
+# Delete a factory (removes file and export)
+npm run pilot delete:factory "Product"
+
+# You must type exactly: "delete factory product"
+```
+
+**Safety Checks:**
+- Blocks deletion if the factory function is referenced in any `tests/**/*.spec.ts` files
+- Requires typed confirmation: `delete factory <normalized-name>`
+- Removes the factory file and export from `factories/index.ts`
+
+### Health Checks (Attendant)
+
+The `attendant` command runs read-only health checks on framework structure.
+
+```bash
+# Run health checks
+npm run pilot attendant
+```
+
+**Checks Performed:**
+- ✅ Validates `featureConfig.json` entries have required fields (tag, planId, suites)
+- ✅ Validates test directories exist for each feature
+- ✅ Validates pages in `src/pages` are properly wired in `test-fixtures.ts`
+- ⚠️ Warns about orphaned fixtures (wired but page doesn't exist)
+- ✅ Validates each `*.factory.ts` is exported in `factories/index.ts`
+- ⚠️ Warns about stale exports (exported but factory file doesn't exist)
+- ⚠️ Warns about spec files missing required imports
+
+**Example Output:**
+```
+🔍 Running health checks...
+
+📊 Health Check Results:
+
+✅ All checks passed!
+```
+
+Or if issues are found:
+
+```
+📊 Health Check Results:
+
+❌ Errors:
+
+   Feature "user-management": planId must be a positive number
+   Page "UserProfile": fixture type entry missing in test-fixtures.ts
+
+⚠️  Warnings:
+
+   Factory export "product": factory file not found (stale export)
+   Spec "tests/e2e/user-management/USER-101.spec.ts": missing factories import
+
+Summary: 2 error(s), 1 warning(s)
+```
+
+### Input Normalization
+
+The CLI automatically normalizes all input to safe kebab-case keys:
+- Converts to lowercase
+- Replaces spaces/underscores with dashes
+- Removes special characters (only `[a-z0-9-]` allowed)
+- Collapses repeated dashes
+- Trims dashes from start/end
+
+If normalization changes your input, the CLI will print: `Normalized <type>: "<original>" → "<normalized>"`
+
+**Examples:**
+- `"User Profile"` → `"user-profile"`
+- `"Appointment_Booking"` → `"appointment-booking"`
+- `"My--Feature"` → `"my-feature"`
+
+### Fail-Safes
+
+The CLI follows conservative behavior:
+- **Never overwrites existing files** - If a file exists, the command errors and stops
+- **Checks references before deletion** - Blocks deletion if resources are in use
+- **Requires typed confirmation** - Delete operations require exact confirmation text
+- **Validates required inputs** - Prompts for missing required fields (planId, suites)
+- **Validates feature existence** - Spec creation requires the feature to exist first
+
+### Command Reference
+
+| Command | Description | Required Flags | Optional Flags |
+|---------|-------------|----------------|----------------|
+| `add:feature <name>` | Create feature with config, test folder, and initial spec | - | `--plan-id <id>`, `--suites <ids>` |
+| `delete:feature <name>` | Delete feature (test folder and config) | - | - |
+| `add:page <name>` | Create page object and wire fixtures | - | `--feature <key>` |
+| `delete:page <name>` | Delete page and unwire fixtures | - | - |
+| `add:spec <name>` | Create spec file under existing feature | `--feature <key>` | - |
+| `add:factory <name>` | Create data factory and add export | - | - |
+| `delete:factory <name>` | Delete factory and remove export | - | - |
+| `attendant` | Run health checks (read-only) | - | - |
+| `help` | Show help information | - | - |
+
 ## Writing Tests
 
 ### Basic Test Structure

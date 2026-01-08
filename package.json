@@ -7,16 +7,23 @@
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
-    "sync:ado": "tsx --env-file=.env src/integrations/azureDevops/index.ts"
+    "sync:ado": "tsx --env-file=.env src/integrations/azureDevops/index.ts",
+    "pilot": "tsx src/cli/index.ts"
+  },
+  "bin": {
+    "pilot": "./dist/cli/index.js"
   },
   "devDependencies": {
     "@faker-js/faker": "^9.0.0",
+    "@inquirer/prompts": "^8.1.0",
     "@playwright/test": "^1.48.0",
     "@types/cli-progress": "^3.11.6",
     "@types/node": "^20.11.0",
     "boxen": "^8.0.1",
     "cli-progress": "^3.12.0",
+    "commander": "^14.0.2",
     "dotenv": "^16.4.0",
+    "fast-glob": "^3.3.3",
     "tsx": "^4.7.0",
     "typescript": "^5.6.0",
     "word-wrap": "^1.2.5"
