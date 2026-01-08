@@ -17,12 +17,12 @@ export class GlobalActions {
 
   // Logs into the application using the login form and provided credentials.
   async login(username?: string, password?: string) {
-    const loginUsername = username || process.env.LOGIN_USERNAME;
+    const loginUsername = username || process.env.LOGIN_EMAIL;
     const loginPassword = password || process.env.LOGIN_PASSWORD;
 
     if (!loginUsername || !loginPassword) {
       throw new Error(
-        "Login credentials are required. Set LOGIN_USERNAME and LOGIN_PASSWORD in .env file or pass as parameters."
+        "Login credentials are required. Set LOGIN_EMAIL and LOGIN_PASSWORD in .env file or pass as parameters."
       );
     }
 

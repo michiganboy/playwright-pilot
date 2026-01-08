@@ -36,11 +36,13 @@ ADO_TOKEN=your-personal-access-token
 BUILD_NUMBER=1.0.0
 BUILD_ID=12345
 
-# Test Plan Filtering (for ADO sync)
-# These select which features/suites/cases to sync from featureConfig.json
-FEATURES=authentication,enrollment
-SUITES=7,8
-CASES=AUTH-9,ENR-101
+# Test Plan Filtering (for ADO sync - optional)
+# FEATURES: If not set, features are auto-detected from test tags in the report
+# SUITES: Optional filter for suite IDs (only when single feature selected)
+# CASES: Optional filter for test case IDs (only when single feature and single suite selected)
+# FEATURES=authentication,enrollment
+# SUITES=7,8
+# CASES=AUTH-9,ENR-101
 ```
 
 ### Environment Variables
@@ -54,11 +56,11 @@ CASES=AUTH-9,ENR-101
 - `ADO_TOKEN` - Azure DevOps Personal Access Token (PAT) with test management permissions
 - `BUILD_NUMBER` - Build number for display in ADO test runs
 - `BUILD_ID` - Build ID for linking test runs to builds (optional)
-- `FEATURES` - Comma-separated list of feature keys from `featureConfig.json` to sync (required)
+- `FEATURES` - Optional comma-separated list of feature keys from `featureConfig.json` to sync. If not set, features are automatically detected from test tags (e.g., `@authentication`) in the Playwright report
 - `SUITES` - Optional comma-separated list of suite IDs to filter (only when single feature selected)
 - `CASES` - Optional comma-separated list of test case IDs to filter (only when single feature and single suite selected)
 
-**Note:** The actual test plan IDs and suite IDs are configured in `src/testdata/featureConfig.json`. The environment variables above are used to filter/select which features, suites, and cases to sync.
+**Note:** The actual test plan IDs and suite IDs are configured in `src/testdata/featureConfig.json`. If `FEATURES` is not set, the system automatically detects which features were tested by scanning the Playwright report for feature tags (e.g., `@authentication`) and matching them to features in `featureConfig.json`.
 
 ## Project Structure
 
@@ -260,7 +262,7 @@ The framework can automatically sync test results to Azure DevOps test plans:
 
 1. Configure `src/testdata/featureConfig.json` with your test plan IDs, suite IDs, and feature tags
 2. Set environment variables for ADO connection (`ADO_ORG_URL`, `ADO_PROJECT`, `ADO_TOKEN`)
-3. Set `FEATURES` environment variable to select which features to sync (required)
+3. Optionally set `FEATURES` environment variable to explicitly select which features to sync. If not set, features are automatically detected from test tags in the Playwright report
 4. Optionally set `SUITES` and `CASES` to filter specific suites or test cases
 5. Enable auto-sync with `ADO_AUTO_SYNC=true` or run manual sync with `npm run sync:ado`
 

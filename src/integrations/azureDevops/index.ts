@@ -2,7 +2,7 @@
 import { readFile } from "fs/promises";
 import { hostname } from "os";
 import { resolve } from "path";
-import { FEATURE_CONFIG, getAvailableFeatureKeys } from "../../utils/featureConfig";
+import { FEATURE_CONFIG, FeatureConfig, getAvailableFeatureKeys } from "../../utils/featureConfig";
 
 interface RunPlan {
   featureKey: string;
@@ -134,14 +134,56 @@ function parseEnvVar(name: string): string[] {
   return value.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
 }
 
-function parseFeatures(): string[] {
-  const features = parseEnvVar("FEATURES");
-  if (features.length === 0) {
-    throw new Error(
-      `FEATURES environment variable is required. Available features: ${getAvailableFeatureKeys().join(", ")}`
-    );
+function detectFeaturesFromReport(playwrightJson: any): string[] {
+  const detectedTags = new Set<string>();
+
+  function extractTagsFromSuite(suite: any): void {
+    if (suite.title) {
+      const tagMatch = suite.title.match(/@(\w+)/);
+      if (tagMatch) {
+        detectedTags.add(`@${tagMatch[1]}`);
+      }
+    }
+    if (suite.suites) {
+      for (const subSuite of suite.suites) {
+        extractTagsFromSuite(subSuite);
+      }
+    }
   }
-  return features;
+
+  if (playwrightJson.suites) {
+    for (const suite of playwrightJson.suites) {
+      extractTagsFromSuite(suite);
+    }
+  }
+
+  const featureKeys: string[] = [];
+  for (const [key, config] of Object.entries(FEATURE_CONFIG)) {
+    const featureConfig = config as FeatureConfig;
+    if (detectedTags.has(featureConfig.tag)) {
+      featureKeys.push(key);
+    }
+  }
+
+  return featureKeys;
+}
+
+function parseFeatures(playwrightJson?: any): string[] {
+  const features = parseEnvVar("FEATURES");
+  if (features.length > 0) {
+    return features;
+  }
+
+  if (playwrightJson) {
+    const detectedFeatures = detectFeaturesFromReport(playwrightJson);
+    if (detectedFeatures.length > 0) {
+      return detectedFeatures;
+    }
+  }
+
+  throw new Error(
+    `FEATURES environment variable is required when no tests are found in the report. Available features: ${getAvailableFeatureKeys().join(", ")}`
+  );
 }
 
 function parseSuites(): number[] {
@@ -822,16 +864,16 @@ export async function syncAzureDevOpsFromPlaywright(quiet: boolean = false): Pro
   const log = quiet ? () => { } : (...args: any[]) => console.log(...args);
   const warn = quiet ? () => { } : (...args: any[]) => console.warn(...args);
 
-  const features = parseFeatures();
-  const suites = parseSuites();
-  const cases = parseCases();
-
-  const runPlans = buildRunPlans(features, suites, cases);
-
   const reportPath = resolve(process.cwd(), "playwright-report.json");
   const jsonContent = await readFile(reportPath, "utf-8");
   const playwrightJson = JSON.parse(jsonContent);
   const allTests = flattenPlaywrightJson(playwrightJson);
+
+  const features = parseFeatures(playwrightJson);
+  const suites = parseSuites();
+  const cases = parseCases();
+
+  const runPlans = buildRunPlans(features, suites, cases);
 
   let totalRuns = 0;
   let totalTests = 0;
