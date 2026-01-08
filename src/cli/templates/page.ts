@@ -14,14 +14,9 @@ export class {{PageName}}Page {
   constructor(private page: Page) {}
 
   // Navigates to the {{description}} page.
-  async navigate() {
+  async navigateTo{{PageName}}() {
     await this.page.goto("/{{pageKey}}");
     await this.page.locator(this.locators.container).waitFor({ timeout: 10000 });
-  }
-
-  // Opens the {{description}} interface.
-  async open() {
-    await this.navigate();
   }
 
   // Performs a primary action on the page.

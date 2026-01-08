@@ -83,27 +83,50 @@ async function wirePageFixture(PageName: string, fixtureName: string, featureKey
 
   // Add to Fixtures type - insert before the closing brace
   if (!content.includes(`${fixtureName}:`)) {
-    const typeMatch = content.match(/type Fixtures = \{([\s\S]+?)\};/);
-    if (typeMatch) {
-      const typeBody = typeMatch[1];
-      const newTypeEntry = `  ${fixtureName}: ${PageName}Page;\n`;
-      content = content.replace(
-        /(type Fixtures = \{[\s\S]+?)(\n\};)/,
-        `$1${newTypeEntry}$2`
-      );
+    const newTypeEntry = `  ${fixtureName}: ${PageName}Page;\n`;
+    // Find the closing brace of the Fixtures type and insert before it
+    const lines = content.split("\n");
+    let inFixturesType = false;
+    let fixturesTypeEndIndex = -1;
+    
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes("type Fixtures = {")) {
+        inFixturesType = true;
+      }
+      if (inFixturesType && (lines[i].trim() === "};" || lines[i].trim().endsWith("};"))) {
+        fixturesTypeEndIndex = i;
+        break;
+      }
+    }
+    
+    if (fixturesTypeEndIndex >= 0) {
+      lines.splice(fixturesTypeEndIndex, 0, newTypeEntry.trimEnd());
+      content = lines.join("\n");
     }
   }
 
   // Add to base.extend - insert before the closing brace
   if (!content.includes(`${fixtureName}: async`)) {
-    const extendMatch = content.match(/export const test = base\.extend<Fixtures>\(\{([\s\S]+?)\}\);?/);
-    if (extendMatch) {
-      const extendBody = extendMatch[1];
-      const newExtendEntry = `  ${fixtureName}: async ({ page }, use) => {\n    await use(new ${PageName}Page(page));\n  },\n`;
-      content = content.replace(
-        /(export const test = base\.extend<Fixtures>\(\{[\s\S]+?)(\n\}\);)/,
-        `$1${newExtendEntry}$2`
-      );
+    const newExtendEntry = `  ${fixtureName}: async ({ page }, use) => {\n    await use(new ${PageName}Page(page));\n  },\n`;
+    // Find the closing brace/paren of base.extend and insert before it
+    const lines = content.split("\n");
+    let inExtend = false;
+    let extendEndIndex = -1;
+    
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes("export const test = base.extend<Fixtures>({")) {
+        inExtend = true;
+      }
+      if (inExtend && (lines[i].trim() === "});" || lines[i].trim().endsWith("});"))) {
+        extendEndIndex = i;
+        break;
+      }
+    }
+    
+    if (extendEndIndex >= 0) {
+      const extendLines = newExtendEntry.trimEnd().split("\n");
+      lines.splice(extendEndIndex, 0, ...extendLines);
+      content = lines.join("\n");
     }
   }
 
@@ -128,7 +151,8 @@ export async function deletePage(pageName: string): Promise<void> {
 
   // Find the page file
   const { REPO_ROOT } = await import("../utils/paths");
-  const pageDirs = await import("fast-glob").then((m) => m.glob("src/pages/*", { cwd: REPO_ROOT, onlyDirectories: true }));
+  const glob = (await import("fast-glob")).default;
+  const pageDirs = await glob("src/pages/*", { cwd: REPO_ROOT, onlyDirectories: true });
   let pagePath: string | null = null;
   let featureKey: string | null = null;
 
@@ -157,6 +181,19 @@ export async function deletePage(pageName: string): Promise<void> {
   // Delete file
   await deleteFileSafe(pagePath);
 
+  // Delete empty directory if it exists
+  const pageDir = path.dirname(pagePath);
+  try {
+    const fs = await import("fs");
+    const dirContents = await fs.promises.readdir(pageDir);
+    if (dirContents.length === 0) {
+      await fs.promises.rmdir(pageDir);
+      console.log(`✓ Removed empty directory: ${pageDir}`);
+    }
+  } catch {
+    // Directory might not exist or might not be empty, ignore
+  }
+
   // Unwire from fixtures
   await unwirePageFixture(PageName, fixtureName);
 
@@ -174,17 +211,17 @@ async function unwirePageFixture(PageName: string, fixtureName: string): Promise
     return;
   }
 
-  // Remove import
-  const importPattern = new RegExp(`import \\{ ${PageName}Page \\} from "[^"]+";\\n?`, "g");
+  // Remove import (tolerate different line endings)
+  const importPattern = new RegExp(`import \\{ ${PageName}Page \\} from "[^"]+";\\r?\\n?`, "g");
   content = content.replace(importPattern, "");
 
   // Remove from Fixtures type
-  const typePattern = new RegExp(`\\s+${fixtureName}: ${PageName}Page;\\n`, "g");
+  const typePattern = new RegExp(`\\s+${fixtureName}: ${PageName}Page;`, "g");
   content = content.replace(typePattern, "");
 
   // Remove from base.extend
   const extendPattern = new RegExp(
-    `\\s+${fixtureName}: async \\(\\{ page \\}, use\\) => \\{[\\s\\S]+?\\},\\n`,
+    `\\s+${fixtureName}: async \\(\\{ page \\}, use\\) => \\{[\\s\\S]+?\\},?`,
     "g"
   );
   content = content.replace(extendPattern, "");

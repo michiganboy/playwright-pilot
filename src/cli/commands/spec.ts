@@ -32,9 +32,8 @@ export async function addSpec(specName: string, featureKey: string): Promise<voi
 
   // Generate spec ID (use feature prefix + increment)
   const featureTestDir = paths.testDir(normalizedFeatureKey);
-  const existingSpecs = await import("fast-glob").then((m) =>
-    m.glob("*.spec.ts", { cwd: featureTestDir }).catch(() => [])
-  );
+  const glob = (await import("fast-glob")).default;
+  const existingSpecs = await glob("*.spec.ts", { cwd: featureTestDir }).catch(() => []);
   const specNumber = existingSpecs.length + 1;
   const specId = normalizedFeatureKey.toUpperCase().slice(0, 4) + `-${100 + specNumber}`;
   const testId1 = `${10000 + specNumber * 2}`;
@@ -78,9 +77,8 @@ async function findPageFixtureForFeature(featureKey: string): Promise<string> {
   try {
     const fs = await import("fs");
     await fs.promises.access(pageDir);
-    const pageFiles = await import("fast-glob").then((m) =>
-      m.glob("*.ts", { cwd: pageDir })
-    );
+    const glob = (await import("fast-glob")).default;
+    const pageFiles = await glob("*.ts", { cwd: pageDir });
     if (pageFiles.length > 0) {
       const pageFile = pageFiles.find((f) => f.endsWith("Page.ts"));
       if (pageFile) {
