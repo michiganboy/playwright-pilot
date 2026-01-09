@@ -7,6 +7,7 @@ export type DataStoreMap = {
   "enrollment.user": models.User;
   "appointments.user": models.User;
   "sitemanager.user": models.User;
+  "schedule.user": models.User;
 };
 
 const dataStorePath = path.resolve(process.cwd(), "src/testdata/dataStore.json");
