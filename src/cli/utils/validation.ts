@@ -7,9 +7,13 @@ import { REPO_ROOT } from "./paths";
 /**
  * Checks if a page fixture is referenced in any test files.
  */
-export async function isPageReferenced(fixtureName: string): Promise<boolean> {
+export async function isPageReferenced(fixtureName: string, excludeFeature?: string): Promise<boolean> {
   const testFiles = await glob("tests/**/*.spec.ts", { cwd: REPO_ROOT });
   for (const file of testFiles) {
+    // Skip test files in the excluded feature directory
+    if (excludeFeature && file.includes(`tests/${excludeFeature}/`)) {
+      continue;
+    }
     const content = await readFileSafe(path.join(REPO_ROOT, file));
     if (content && content.includes(fixtureName)) {
       return true;

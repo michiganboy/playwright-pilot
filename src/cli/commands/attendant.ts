@@ -1,6 +1,7 @@
 // Health check command (attendant).
 import { readJsonSafe, readFileSafe, fileExists, dirExists } from "../utils/fileOps";
 import { paths, REPO_ROOT } from "../utils/paths";
+import { getSuiteIds, hasSuiteId } from "../../utils/featureConfig";
 import { glob } from "fast-glob";
 import path from "path";
 
@@ -8,7 +9,7 @@ interface FeatureConfig {
   [key: string]: {
     tag: string;
     planId: number;
-    suites: number[];
+    suites: Record<string, string>; // Suite ID (as string) -> Suite Name
   };
 }
 
@@ -98,10 +99,11 @@ async function checkFeatureConfig(results: HealthCheckResult[]): Promise<void> {
         message: `Feature "${featureKey}": planId must be a positive number`,
       });
     }
-    if (!Array.isArray(feature.suites) || feature.suites.length === 0) {
+    const suiteIds = getSuiteIds(feature.suites);
+    if (suiteIds.length === 0) {
       results.push({
         type: "error",
-        message: `Feature "${featureKey}": suites must be a non-empty array`,
+        message: `Feature "${featureKey}": suites must contain at least one suite ID`,
       });
     }
   }

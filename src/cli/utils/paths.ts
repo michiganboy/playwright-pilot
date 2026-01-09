@@ -38,6 +38,9 @@ export const paths = {
   factory: (modelKey: string) =>
     path.join(REPO_ROOT, "src", "testdata", "factories", `${modelKey}.factory.ts`),
   factoriesIndex: () => path.join(REPO_ROOT, "src", "testdata", "factories", "index.ts"),
+  model: (modelKey: string) =>
+    path.join(REPO_ROOT, "src", "testdata", "models", `${modelKey}.ts`),
+  modelsIndex: () => path.join(REPO_ROOT, "src", "testdata", "models", "index.ts"),
   templates: (templateName: string) =>
     path.join(REPO_ROOT, "src", "cli", "templates", templateName),
 };

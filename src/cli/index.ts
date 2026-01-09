@@ -3,9 +3,17 @@
 import { Command } from "commander";
 import { addPage, deletePage } from "./commands/page";
 import { addFeature, deleteFeature } from "./commands/feature";
-import { addSpec } from "./commands/spec";
+import { addSpec, deleteSpec } from "./commands/spec";
 import { addFactory, deleteFactory } from "./commands/factory";
 import { runAttendant } from "./commands/attendant";
+
+// ANSI color codes
+const RESET = "\x1b[0m";
+const RED = "\x1b[31m"; // Error
+
+function error(message: string): string {
+  return `${RED}${message}${RESET}`;
+}
 
 const program = new Command();
 
@@ -18,13 +26,13 @@ program
 program
   .command("add:page")
   .description("Create a new page object and wire it into fixtures")
-  .argument("<PageName>", "Name of the page (e.g., 'UserProfile' or 'user-profile')")
+  .argument("[PageName]", "Name of the page (optional - will prompt if not provided)")
   .option("-f, --feature <featureKey>", "Feature key for the page directory")
-  .action(async (pageName: string, options: { feature?: string }) => {
+  .action(async (pageName: string | undefined, options: { feature?: string }) => {
     try {
       await addPage(pageName, options.feature);
-    } catch (error) {
-      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } catch (err) {
+      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exit(1);
     }
   });
@@ -32,12 +40,12 @@ program
 program
   .command("delete:page")
   .description("Delete a page object and unwire it from fixtures")
-  .argument("<PageName>", "Name of the page to delete")
-  .action(async (pageName: string) => {
+  .argument("[PageName]", "Name of the page to delete (optional - will prompt if not provided)")
+  .action(async (pageName: string | undefined) => {
     try {
       await deletePage(pageName);
-    } catch (error) {
-      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } catch (err) {
+      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exit(1);
     }
   });
@@ -47,16 +55,12 @@ program
   .description("Create a new feature with test folder, config entry, and initial spec")
   .argument("<FeatureName>", "Name of the feature (e.g., 'AppointmentBooking' or 'appointment-booking')")
   .option("-p, --plan-id <planId>", "Azure DevOps Plan ID (number)")
-  .option("-s, --suites <suites>", "Azure DevOps Suite IDs (comma-separated numbers)")
-  .action(async (featureName: string, options: { planId?: string; suites?: string }) => {
+  .action(async (featureName: string, options: { planId?: string }) => {
     try {
       const planId = options.planId ? parseInt(options.planId, 10) : undefined;
-      const suites = options.suites
-        ? options.suites.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n))
-        : undefined;
-      await addFeature(featureName, planId, suites);
-    } catch (error) {
-      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      await addFeature(featureName, planId);
+    } catch (err) {
+      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exit(1);
     }
   });
@@ -64,26 +68,66 @@ program
 program
   .command("delete:feature")
   .description("Delete a feature (test folder and config entry)")
-  .argument("<FeatureName>", "Name of the feature to delete")
-  .action(async (featureName: string) => {
+  .argument("[FeatureName]", "Name of the feature to delete (optional - will prompt if not provided)")
+  .action(async (featureName: string | undefined) => {
     try {
       await deleteFeature(featureName);
-    } catch (error) {
-      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } catch (err) {
+      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exit(1);
     }
   });
 
 program
   .command("add:spec")
-  .description("Create a new spec file under an existing feature")
-  .argument("<SpecName>", "Name of the spec (e.g., 'UserLoginFlow' or 'user-login-flow')")
-  .requiredOption("-f, --feature <featureKey>", "Feature key (must already exist)")
-  .action(async (specName: string, options: { feature: string }) => {
+  .description("Create a new suite spec under an existing feature")
+  .option("-f, --feature <featureKey>", "Feature key (must already exist)")
+  .action(async (options: { feature?: string }) => {
     try {
-      await addSpec(specName, options.feature);
-    } catch (error) {
-      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      await addSpec(options.feature);
+    } catch (err) {
+      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command("add:suite")
+  .description("Create a new suite under an existing feature")
+  .option("-f, --feature <featureKey>", "Feature key (must already exist)")
+  .action(async (options: { feature?: string }) => {
+    try {
+      await addSpec(options.feature);
+    } catch (err) {
+      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command("delete:spec")
+  .description("Delete a suite spec and remove it from feature config")
+  .option("-f, --feature <featureKey>", "Feature key")
+  .option("-s, --suite <suiteName>", "Suite name")
+  .action(async (options: { feature?: string; suite?: string }) => {
+    try {
+      await deleteSpec(options.feature, options.suite);
+    } catch (err) {
+      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command("delete:suite")
+  .description("Delete a suite and remove it from feature config")
+  .option("-f, --feature <featureKey>", "Feature key")
+  .option("-s, --suite <suiteName>", "Suite name")
+  .action(async (options: { feature?: string; suite?: string }) => {
+    try {
+      await deleteSpec(options.feature, options.suite);
+    } catch (err) {
+      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exit(1);
     }
   });
@@ -91,12 +135,12 @@ program
 program
   .command("add:factory")
   .description("Create a new data factory and add it to barrel exports")
-  .argument("<ModelName>", "Name of the model (e.g., 'User' or 'user')")
-  .action(async (modelName: string) => {
+  .argument("[ModelName]", "Name of the model (optional - will prompt if not provided)")
+  .action(async (modelName: string | undefined) => {
     try {
       await addFactory(modelName);
-    } catch (error) {
-      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } catch (err) {
+      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exit(1);
     }
   });
@@ -104,12 +148,12 @@ program
 program
   .command("delete:factory")
   .description("Delete a factory and remove it from barrel exports")
-  .argument("<FactoryName>", "Name of the factory to delete")
-  .action(async (factoryName: string) => {
+  .argument("[FactoryName]", "Name of the factory to delete (optional - will prompt if not provided)")
+  .action(async (factoryName: string | undefined) => {
     try {
       await deleteFactory(factoryName);
-    } catch (error) {
-      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } catch (err) {
+      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exit(1);
     }
   });
@@ -120,8 +164,8 @@ program
   .action(async () => {
     try {
       await runAttendant();
-    } catch (error) {
-      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } catch (err) {
+      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exit(1);
     }
   });

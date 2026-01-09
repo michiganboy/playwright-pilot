@@ -2,7 +2,7 @@
 import { readFile } from "fs/promises";
 import { hostname } from "os";
 import { resolve } from "path";
-import { FEATURE_CONFIG, FeatureConfig, getAvailableFeatureKeys } from "../../utils/featureConfig";
+import { FEATURE_CONFIG, FeatureConfig, getAvailableFeatureKeys, getSuiteIds, hasSuiteId } from "../../utils/featureConfig";
 
 interface RunPlan {
   featureKey: string;
@@ -233,8 +233,9 @@ function buildRunPlans(features: string[], suites: number[], cases: string[]): R
     const featureKey = features[0];
     const config = FEATURE_CONFIG[featureKey];
 
+    const suiteIds = getSuiteIds(config.suites);
     if (suites.length === 0) {
-      for (const suiteId of config.suites) {
+      for (const suiteId of suiteIds) {
         plans.push({
           featureKey,
           tag: config.tag,
@@ -244,9 +245,9 @@ function buildRunPlans(features: string[], suites: number[], cases: string[]): R
       }
     } else {
       for (const suiteId of suites) {
-        if (!config.suites.includes(suiteId)) {
+        if (!hasSuiteId(config.suites, suiteId)) {
           throw new Error(
-            `Suite ID ${suiteId} is not valid for feature ${featureKey}. Valid suite IDs: ${config.suites.join(", ")}`
+            `Suite ID ${suiteId} is not valid for feature ${featureKey}. Valid suite IDs: ${suiteIds.join(", ")}`
           );
         }
         plans.push({
@@ -261,7 +262,8 @@ function buildRunPlans(features: string[], suites: number[], cases: string[]): R
   } else {
     for (const featureKey of features) {
       const config = FEATURE_CONFIG[featureKey];
-      for (const suiteId of config.suites) {
+      const suiteIds = getSuiteIds(config.suites);
+      for (const suiteId of suiteIds) {
         plans.push({
           featureKey,
           tag: config.tag,
@@ -345,7 +347,7 @@ function extractFeatureFromPath(filePath: string): string | null {
   // Normalize path separators so regex works on Windows and POSIX paths
   const normalizedPath = filePath.replace(/\\/g, "/");
   // Support paths with or without a leading "tests/" segment, e.g.:
-  // - "tests/e2e/authentication/..." (full repo path)
+  // - "tests/authentication/..." (full repo path)
   // - "e2e/authentication/..." (Playwright JSON relative to tests root)
   const match = normalizedPath.match(/(?:^|\/)(?:tests\/)?e2e\/([^\/]+)\//);
   if (!match) {

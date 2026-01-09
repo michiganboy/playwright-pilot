@@ -40,6 +40,18 @@ export function toCamelCase(input: string): string {
 }
 
 /**
+ * Normalizes a suite name to Title Case (e.g., "create schedule" -> "Create Schedule").
+ * This ensures consistent storage and prevents case-sensitive duplicates.
+ */
+export function normalizeSuiteName(input: string): string {
+  return input
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/**
  * Normalizes and validates input, printing transformation if changed.
  */
 export function normalizeAndPrint(original: string, type: string): string {
