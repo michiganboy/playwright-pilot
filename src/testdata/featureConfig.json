@@ -1,1 +1,9 @@
-{}
+{
+  "e2e-test-flows": {
+    "tag": "@e2e-test-flows",
+    "planId": 2,
+    "suites": {
+      "7": "Authentication"
+    }
+  }
+}

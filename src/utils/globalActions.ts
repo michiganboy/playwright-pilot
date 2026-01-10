@@ -1,6 +1,6 @@
 // Defines cross-application actions such as login and navigation.
 import type { Page } from "@playwright/test";
-import { LoginPage } from "../pages/login/LoginPage";
+import { E2eTestFlowsPage } from "../pages/e2e-test-flows/E2eTestFlowsPage";
 
 // Provides reusable actions that apply across multiple areas of the application.
 export class GlobalActions {
@@ -9,10 +9,10 @@ export class GlobalActions {
     appReadyIndicator: '[data-testid="app-ready"]',
   };
 
-  private loginPage: LoginPage;
+  private loginPage: E2eTestFlowsPage;
 
   constructor(private page: Page) {
-    this.loginPage = new LoginPage(page);
+    this.loginPage = new E2eTestFlowsPage(page);
   }
 
   // Logs into the application using the login form and provided credentials.
@@ -26,7 +26,9 @@ export class GlobalActions {
       );
     }
 
-    await this.loginPage.login(loginUsername, loginPassword);
+    await this.loginPage.navigateToE2eTestFlows();
+    await this.loginPage.enterLoginCredentials(loginUsername, loginPassword);
+    await this.loginPage.clickSubmitButton();
     await this.waitForAppReady();
   }
 

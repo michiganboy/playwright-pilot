@@ -165,10 +165,21 @@ export async function addFeatureWithSuites(
  * Adds a new feature.
  */
 export async function addFeature(
-  featureName: string,
+  featureName: string | undefined,
   planId?: number
 ): Promise<void> {
-  const featureKey = normalizeAndPrint(featureName, "feature name");
+  // Prompt for feature name if not provided
+  let finalFeatureName = featureName;
+  if (!finalFeatureName || !finalFeatureName.trim()) {
+    finalFeatureName = await input({
+      message: "Enter feature name:",
+    });
+    if (!finalFeatureName.trim()) {
+      throw new Error("Feature name is required");
+    }
+  }
+
+  const featureKey = normalizeAndPrint(finalFeatureName, "feature name");
 
   // Check if feature already exists
   const config = await readJsonSafe<FeatureConfig>(paths.featureConfig());
