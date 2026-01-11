@@ -75,7 +75,7 @@ export async function addFactory(factoryName?: string): Promise<void> {
 }
 
 /**
- * Creates a factory file with the specified fields and faker methods.
+ * Creates a factory file.
  */
 async function createFactoryFile(modelKey: string, ModelName: string): Promise<void> {
 
