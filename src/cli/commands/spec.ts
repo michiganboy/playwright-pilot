@@ -229,9 +229,9 @@ import { load } from "../../src/utils/dataStore";
 // ---
 
 test.describe.serial("${specId} - ${suiteNameForFile.replace(/-/g, " ")} ${feature.tag}", () => {
-  test("[${testId}] Login with valid credentials", async ({ globalActions }) => {
+  test("[${testId}] Login with valid credentials", async ({ autoPilot }) => {
     await test.step("Login to application", async () => {
-      await globalActions.login();
+      await autoPilot.login();
     });
 
     await test.step("Verify successful login", async () => {
@@ -242,11 +242,11 @@ test.describe.serial("${specId} - ${suiteNameForFile.replace(/-/g, " ")} ${featu
   });
 
   test("[${parseInt(testId) + 1}] invalid password", async ({ ${pageFixture} }) => {
-    const driver = ${pageFixture}.toLoginDriver();
+    const pilot = ${pageFixture}.toLoginPilot();
 
     await test.step("Attempt login with invalid password", async () => {
-      await driver.goto();
-      await driver.submit("user@test.com", "wrong-password");
+      await pilot.goto();
+      await pilot.submit("user@test.com", "wrong-password");
     });
 
     await test.step("Verify failed login message", async () => {

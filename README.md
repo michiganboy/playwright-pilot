@@ -117,7 +117,7 @@ playwright-pilot/
 │       ├── custom-list-reporter.ts  # Custom Playwright reporter
 │       ├── dataStore.ts       # Data store utilities
 │       ├── featureConfig.ts   # Feature configuration loader
-│       └── globalActions.ts    # Shared test actions
+│       └── autoPilot.ts        # Shared test actions
 ├── tests/
 │   ├── authentication/        # Tests organized by feature
 │   ├── user-management/

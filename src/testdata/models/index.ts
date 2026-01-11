@@ -1,10 +1,4 @@
-export * from './user';
-export * from './schedule';
-
-import type { User } from './user';
-import type { Schedule } from './schedule';
+// Model exports will be added here automatically by the CLI
 
 export interface ModelMap {
-  User: User;
-  Schedule: Schedule;
 }
