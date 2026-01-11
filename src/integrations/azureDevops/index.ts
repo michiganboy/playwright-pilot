@@ -24,7 +24,8 @@ interface PlaywrightTestResult {
   status: "passed" | "failed" | "skipped";
   durationMs: number;
   errorMessage?: string;
-  file: string;
+  errorStack?: string;
+  file?: string;
   steps?: PlaywrightTestStep[];
   startTime?: string;
   retry?: number;
@@ -114,11 +115,14 @@ interface AzureDevOpsTestResult {
   testCaseTitle?: string;
   outcome: string;
   automatedTestName?: string;
+  automatedTestType?: string;
+  automatedTestStorage?: string;
   state?: string;
   durationInMs: number;
   startedDate?: string;
   completedDate?: string;
   errorMessage?: string;
+  stackTrace?: string;
   comment?: string;
   computerName?: string;
   testPlan?: { id: number };
@@ -139,7 +143,7 @@ function detectFeaturesFromReport(playwrightJson: any): string[] {
 
   function extractTagsFromSuite(suite: any): void {
     if (suite.title) {
-      const tagMatch = suite.title.match(/@(\w+)/);
+      const tagMatch = suite.title.match(/@([\w-]+)/);
       if (tagMatch) {
         detectedTags.add(`@${tagMatch[1]}`);
       }
@@ -299,9 +303,54 @@ function flattenPlaywrightJson(json: any): PlaywrightTestResult[] {
               const errorMessage = result.errors && result.errors.length > 0
                 ? result.errors.map((err: any) => {
                   const msg = err.message || "Unknown error";
-                  return stripAnsiCodes(msg);
+                  const cleaned = stripAnsiCodes(msg);
+                  // Extract just the error message part (before stack trace lines starting with "at")
+                  const messageOnly = cleaned.split(/\n\s+at\s/)[0].trim();
+                  return messageOnly;
                 }).join("\n")
                 : undefined;
+
+              let filePath: string | undefined = spec.file;
+              if (filePath) {
+                filePath = normalizeTestFilePath(filePath);
+              } else if (result.errors && result.errors.length > 0 && result.errors[0].location?.file) {
+                filePath = normalizeTestFilePath(result.errors[0].location.file);
+              } else {
+                const resultWithError = result as any;
+                if (resultWithError.errorLocation?.file) {
+                  filePath = normalizeTestFilePath(resultWithError.errorLocation.file);
+                } else if (resultWithError.error?.location?.file) {
+                  filePath = normalizeTestFilePath(resultWithError.error.location.file);
+                }
+              }
+
+              if (!filePath || filePath.trim() === "") {
+                filePath = undefined;
+              }
+
+              let errorStack: string | undefined = undefined;
+
+              if (result.errors && result.errors.length > 0) {
+                const stacks = result.errors
+                  .map((err: any) => {
+                    if (err.stack) {
+                      return stripAnsiCodes(err.stack);
+                    }
+                    return null;
+                  })
+                  .filter((stack: string | null) => stack !== null && stack.trim().length > 0);
+
+                if (stacks.length > 0) {
+                  errorStack = stacks.join("\n");
+                }
+              }
+
+              if (!errorStack) {
+                const resultWithError = result as any;
+                if (resultWithError.error?.stack) {
+                  errorStack = stripAnsiCodes(resultWithError.error.stack);
+                }
+              }
 
               results.push({
                 fullTitle: `${suite.title} - ${spec.title}`,
@@ -310,7 +359,8 @@ function flattenPlaywrightJson(json: any): PlaywrightTestResult[] {
                 status: result.status,
                 durationMs: result.duration,
                 errorMessage: errorMessage,
-                file: spec.file,
+                errorStack: errorStack,
+                file: filePath,
                 steps: result.steps?.map((step: any) => ({
                   title: step.title,
                   duration: step.duration,
@@ -385,11 +435,83 @@ function stripAnsiCodes(text: string): string {
   return text.replace(/\u001b\[[0-9;]*m/g, "");
 }
 
+function normalizeTestFilePath(filePath: string): string {
+  if (!filePath) {
+    return "";
+  }
+
+  // Normalize slashes to forward slashes
+  let normalized = filePath.replace(/\\/g, "/");
+
+  // If path contains "/tests/", extract everything from "tests/" onwards
+  const testsIndex = normalized.indexOf("/tests/");
+  if (testsIndex !== -1) {
+    normalized = normalized.substring(testsIndex + 1); // +1 to skip the leading "/"
+  }
+
+  // Try to remove workspace root if present
+  const workspaceRoot = process.cwd().replace(/\\/g, "/");
+  if (normalized.startsWith(workspaceRoot)) {
+    normalized = normalized.substring(workspaceRoot.length);
+  }
+
+  // Handle Windows drive prefixes (e.g., "C:/", "D:/")
+  if (/^[A-Za-z]:\//.test(normalized)) {
+    // Try to find "/tests/" in the path
+    const testsIndexInDrive = normalized.indexOf("/tests/");
+    if (testsIndexInDrive !== -1) {
+      normalized = normalized.substring(testsIndexInDrive + 1);
+    } else {
+      // Strip everything up to the last "/" (keep only filename)
+      const lastSlash = normalized.lastIndexOf("/");
+      if (lastSlash !== -1) {
+        normalized = normalized.substring(lastSlash + 1);
+      } else {
+        // No slash, strip drive prefix
+        const colonIndex = normalized.indexOf(":");
+        if (colonIndex !== -1) {
+          normalized = normalized.substring(colonIndex + 1).replace(/^\/+/, "");
+        }
+      }
+    }
+  }
+
+  // Remove leading slashes
+  normalized = normalized.replace(/^\/+/, "");
+
+  // Ensure no drive prefix remains
+  if (/^[A-Za-z]:/.test(normalized)) {
+    const lastSlash = normalized.lastIndexOf("/");
+    if (lastSlash !== -1) {
+      normalized = normalized.substring(lastSlash + 1);
+    } else {
+      const colonIndex = normalized.indexOf(":");
+      if (colonIndex !== -1) {
+        normalized = normalized.substring(colonIndex + 1).replace(/^\/+/, "");
+      }
+    }
+  }
+
+  // If it's a test file and doesn't start with "tests/", prepend it
+  if ((normalized.includes(".spec.ts") || normalized.includes(".test.ts")) &&
+    !normalized.startsWith("tests/") && !normalized.startsWith("/tests/")) {
+    normalized = `tests/${normalized}`;
+  }
+
+  // Final cleanup: remove any remaining leading slashes
+  normalized = normalized.replace(/^\/+/, "");
+
+  return normalized || filePath;
+}
+
 function filterTestsForRunPlan(
   tests: PlaywrightTestResult[],
   plan: RunPlan
 ): PlaywrightTestResult[] {
   return tests.filter((test) => {
+    if (!test.file) {
+      return false;
+    }
     const featureKey = extractFeatureFromPath(test.file);
     if (featureKey !== plan.featureKey) {
       return false;
@@ -758,11 +880,14 @@ async function postTestResults(
         outcome,
         // Remove case ID prefix (e.g., "[8] ") from test title for cleaner display
         automatedTestName: stripCaseIdPrefix(test.testTitle),
+        automatedTestType: "Playwright",
+        automatedTestStorage: test.file && test.file.trim().length > 0 ? normalizeTestFilePath(test.file) : undefined,
         state: "Completed",
         durationInMs: test.durationMs,
         startedDate: test.startTime,
         completedDate: completedDate,
         errorMessage: test.errorMessage,
+        stackTrace: test.errorStack && test.errorStack.trim().length > 0 ? test.errorStack : undefined,
         comment: comment,
         computerName: hostname(),
         testPlan: { id: planId },
@@ -809,6 +934,9 @@ async function postTestResults(
   }
 
   // Use PATCH to update existing results
+  if (!quiet && resultsToUpdate.length > 0) {
+    log("Sample result being sent:", JSON.stringify(resultsToUpdate[0], null, 2));
+  }
   const response = await fetch(url, {
     method: "PATCH",
     headers: {

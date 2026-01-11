@@ -4,6 +4,7 @@ import { paths, REPO_ROOT } from "../utils/paths";
 import { normalizeAndPrint, toPascalCase, toCamelCase, normalizeSuiteName } from "../utils/normalize";
 import { loadTemplate, renderTemplate } from "../utils/templates";
 import { findMatchingPages } from "../utils/validation";
+import { addFeatureToDataStoreMap, removeFeatureFromDataStoreMap } from "../utils/dataStoreUpdater";
 import { input, confirm, select } from "@inquirer/prompts";
 import { addPage } from "./page";
 import path from "path";
@@ -76,7 +77,10 @@ export async function addFeatureWithSuites(
     }
   } else {
     // No matching pages found, automatically use feature name as page name
-    pageName = featureKey;
+    // If featureKey ends with "-page", strip it to avoid double "Page" suffix
+    pageName = featureKey.toLowerCase().endsWith("-page") 
+      ? featureKey.slice(0, -5) 
+      : featureKey;
     console.log(`✓ Will create page: ${pageName}`);
   }
 
@@ -88,6 +92,9 @@ export async function addFeatureWithSuites(
     suites: suiteMapping,
   };
   await writeJsonSafe(paths.featureConfig(), updatedConfig, true);
+
+  // Add feature key to DataStoreMap
+  await addFeatureToDataStoreMap(featureKey);
 
   // Create test directory (by creating a file in it)
   const gitkeepPath = path.join(testDir, ".gitkeep");
@@ -165,10 +172,21 @@ export async function addFeatureWithSuites(
  * Adds a new feature.
  */
 export async function addFeature(
-  featureName: string,
+  featureName: string | undefined,
   planId?: number
 ): Promise<void> {
-  const featureKey = normalizeAndPrint(featureName, "feature name");
+  // Prompt for feature name if not provided
+  let finalFeatureName = featureName;
+  if (!finalFeatureName || !finalFeatureName.trim()) {
+    finalFeatureName = await input({
+      message: "Enter feature name:",
+    });
+    if (!finalFeatureName.trim()) {
+      throw new Error("Feature name is required");
+    }
+  }
+
+  const featureKey = normalizeAndPrint(finalFeatureName, "feature name");
 
   // Check if feature already exists
   const config = await readJsonSafe<FeatureConfig>(paths.featureConfig());
@@ -279,7 +297,10 @@ export async function addFeature(
     }
   } else {
     // No matching pages found, automatically use feature name as page name
-    pageName = featureKey;
+    // If featureKey ends with "-page", strip it to avoid double "Page" suffix
+    pageName = featureKey.toLowerCase().endsWith("-page") 
+      ? featureKey.slice(0, -5) 
+      : featureKey;
     console.log(`✓ Will create page: ${pageName}`);
   }
 
@@ -291,6 +312,9 @@ export async function addFeature(
     suites: suiteMapping,
   };
   await writeJsonSafe(paths.featureConfig(), updatedConfig, true);
+
+  // Add feature key to DataStoreMap
+  await addFeatureToDataStoreMap(featureKey);
 
   // Create test directory (by creating a file in it)
   const gitkeepPath = path.join(testDir, ".gitkeep");
@@ -448,6 +472,7 @@ export async function deleteFeature(featureName: string | undefined): Promise<vo
     const pagePath = paths.pages(featureKey, PageName);
 
     // Check if page is referenced in test files (excluding the feature being deleted)
+    // Pass featureKey to exclude tests from the feature being deleted
     const isReferenced = await isPageReferenced(fixtureName, featureKey);
     
     if (isReferenced) {
@@ -492,6 +517,9 @@ export async function deleteFeature(featureName: string | undefined): Promise<vo
     await writeJsonSafe(paths.featureConfig(), config, true);
   }
 
+  // Remove feature key from DataStoreMap
+  await removeFeatureFromDataStoreMap(featureKey);
+
   // Delete test directory
   const testDir = paths.testDir(featureKey);
   if (dirExists(testDir)) {
@@ -500,5 +528,6 @@ export async function deleteFeature(featureName: string | undefined): Promise<vo
 
   console.log(`✓ Deleted feature: ${featureKey}`);
   console.log(`✓ Removed from featureConfig.json`);
+  console.log(`✓ Removed from DataStoreMap`);
   console.log(`✓ Deleted test directory: ${testDir}`);
 }

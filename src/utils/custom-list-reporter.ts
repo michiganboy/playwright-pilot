@@ -229,10 +229,25 @@ class CustomListReporter implements Reporter {
 
   async onExit() {
     // onExit runs after globalTeardown, so JSON reporter file should be fully written
-    // Run ADO sync here if enabled
+    // Run ADO sync here if enabled, but only if tests were actually run
     if (process.env.ADO_AUTO_SYNC === "true") {
       try {
-        await syncAzureDevOpsFromPlaywright(true);
+        // Check if there are any tests in the report before syncing
+        const fs = await import("fs");
+        const path = await import("path");
+        const reportPath = path.resolve(process.cwd(), "playwright-report.json");
+
+        if (fs.existsSync(reportPath)) {
+          const reportContent = fs.readFileSync(reportPath, "utf-8");
+          const report = JSON.parse(reportContent);
+
+          // Only sync if there are actual test results
+          const hasTests = report.suites && report.suites.length > 0;
+          if (hasTests) {
+            await syncAzureDevOpsFromPlaywright(true);
+          }
+          // If no tests, silently skip sync (this is normal when running non-Playwright tests)
+        }
       } catch (err) {
         console.error("Azure DevOps auto-sync failed:", err);
         // Don't fail the test run if sync fails

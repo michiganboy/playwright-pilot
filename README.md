@@ -171,12 +171,16 @@ Open the generated page object file and update it with your actual selectors and
 
 ```typescript
 // src/pages/authentication/AuthenticationPage.ts
+import type { Page } from "@playwright/test";
+
 export class AuthenticationPage {
   private locators = {
     emailInput: '[data-testid="email"]', // Update with real selectors
     passwordInput: '[data-testid="password"]', // Update with real selectors
     submitButton: '[data-testid="login-button"]', // Update with real selectors
   };
+
+  constructor(private page: Page) {}
 
   // Update navigation method with actual URL
   async navigateToAuthentication() {
@@ -208,7 +212,7 @@ import * as factories from "../../../src/testdata/factories";
 import { load } from "../../../src/utils/dataStore";
 
 test.describe.serial("AUTH-101 - User Login @authentication", () => {
-  test("[AUTH-10001] Verify user can login with valid credentials", async ({ authenticationPage }) => {
+  test("[AUTH-10001] Verify user can login with valid credentials", async ({ page, authenticationPage }) => {
     await factories.createUser().save("authentication.user");
     const user = await load("authentication.user");
     if (!user) {
@@ -231,7 +235,7 @@ test.describe.serial("AUTH-101 - User Login @authentication", () => {
     });
 
     await test.step("Verify successful login", async () => {
-      await expect(authenticationPage.page).toHaveURL(/dashboard/);
+      await expect(page).toHaveURL(/dashboard/);
     });
   });
 });
@@ -873,7 +877,7 @@ import * as factories from "../../../src/testdata/factories";
 import { load } from "../../../src/utils/dataStore";
 
 test.describe.serial("AUTH-101 - User Authentication @authentication", () => {
-  test("[AUTH-10001] Verify user can login with valid credentials", async ({ loginPage }) => {
+  test("[AUTH-10001] Verify user can login with valid credentials", async ({ page, loginPage }) => {
     await factories.createUser().save("authentication.user");
     const user = await load("authentication.user");
     if (!user) {
@@ -896,7 +900,7 @@ test.describe.serial("AUTH-101 - User Authentication @authentication", () => {
     });
 
     await test.step("Verify successful login", async () => {
-      await expect(loginPage.page).toHaveURL(/dashboard/);
+      await expect(page).toHaveURL(/dashboard/);
     });
   });
 });
@@ -1299,7 +1303,7 @@ import * as factories from "../../../src/testdata/factories";
 import { load } from "../../../src/utils/dataStore";
 
 test.describe.serial("USER-101 - User Login @user-management", () => {
-  test("[USER-10001] Verify user can login with valid credentials", async ({ userManagementPage }) => {
+  test("[USER-10001] Verify user can login with valid credentials", async ({ page, userManagementPage }) => {
     await factories.createUser().save("user-management.user");
     const user = await load("user-management.user");
     if (!user) {
@@ -1325,7 +1329,7 @@ test.describe.serial("USER-101 - User Login @user-management", () => {
     });
 
     await test.step("Verify successful login", async () => {
-      await expect(userManagementPage.page).toHaveURL(/dashboard/);
+      await expect(page).toHaveURL(/dashboard/);
     });
   });
 });

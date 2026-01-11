@@ -1,0 +1,6 @@
+{
+  "files.associations": {
+    "**/src/cli/templates/**/*.ts": "plaintext",
+    "**/src/cli/templates/*.ts": "plaintext"
+  }
+}

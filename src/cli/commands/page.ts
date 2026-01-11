@@ -39,13 +39,18 @@ export async function addPage(pageName: string | undefined, featureKey?: string)
         message: finalPageName ? "Enter a different page name:" : "Enter page name:",
       });
     }
-    
+
     if (!pageNameInput.trim()) {
       console.log(warning("Page name is required. Please enter a name."));
       continue;
     }
 
-    const normalized = normalizeAndPrint(pageNameInput, "page name");
+    let normalized = normalizeAndPrint(pageNameInput, "page name");
+    // If normalized name ends with "-page", strip it to avoid double "Page" suffix
+    // This handles cases where user enters "login-page" or feature name is "login-page"
+    if (normalized.toLowerCase().endsWith("-page")) {
+      normalized = normalized.slice(0, -5);
+    }
     const pageKeyCandidate = featureKey ? normalizeAndPrint(featureKey, "feature key") : normalized;
     const PageNameCandidate = toPascalCase(normalized);
     const fixtureNameCandidate = toCamelCase(normalized) + "Page";
@@ -84,12 +89,33 @@ export async function addPage(pageName: string | undefined, featureKey?: string)
 
   // Load template
   const template = await loadTemplate("page.ts");
+  const loginDriverHelper =
+    PageName === "Login"
+      ? `
+        // Creates a LoginDriver adapter for GlobalActions.login().
+        toLoginDriver() {
+          return {
+            goto: async () => {
+              await this.navigateToLogin();
+            },
+            submit: async (username: string, password: string) => {
+              throw new Error(
+                "Login submission is not configured. Implement submit() in LoginPage.toLoginDriver() using your app's locators."
+              );
+            },
+          };
+        }
+      `
+      : "";
+
   const content = renderTemplate(template, {
     PageName: PageName!,
     pageKey: normalizedPageName!,
     description: normalizedPageName!.replace(/-/g, " "),
     modelImports: "", // Can be enhanced later
+    loginDriverHelper,
   });
+
 
   await writeFileSafe(pagePath!, content);
 
@@ -145,7 +171,7 @@ async function wirePageFixture(PageName: string, fixtureName: string, featureKey
     const lines = content.split("\n");
     let inFixturesType = false;
     let fixturesTypeEndIndex = -1;
-    
+
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].includes("type Fixtures = {")) {
         inFixturesType = true;
@@ -155,7 +181,7 @@ async function wirePageFixture(PageName: string, fixtureName: string, featureKey
         break;
       }
     }
-    
+
     if (fixturesTypeEndIndex >= 0) {
       lines.splice(fixturesTypeEndIndex, 0, newTypeEntry.trimEnd());
       content = lines.join("\n");
@@ -169,7 +195,7 @@ async function wirePageFixture(PageName: string, fixtureName: string, featureKey
     const lines = content.split("\n");
     let inExtend = false;
     let extendEndIndex = -1;
-    
+
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].includes("export const test = base.extend<Fixtures>({")) {
         inExtend = true;
@@ -179,8 +205,26 @@ async function wirePageFixture(PageName: string, fixtureName: string, featureKey
         break;
       }
     }
-    
+
     if (extendEndIndex >= 0) {
+      // Ensure the previous entry has a trailing comma
+      // Look backwards from extendEndIndex to find the last non-empty line before the closing brace
+      for (let i = extendEndIndex - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (line.length > 0 && !line.startsWith("//")) {
+          // If the last non-empty line doesn't end with a comma, add one on the same line
+          if (!line.endsWith(",") && !line.endsWith("{") && !line.endsWith("(")) {
+            // Check if it's a closing brace - add comma on same line
+            if (line === "}") {
+              lines[i] = "  },";
+            } else {
+              lines[i] = lines[i] + ",";
+            }
+          }
+          break;
+        }
+      }
+
       const extendLines = newExtendEntry.trimEnd().split("\n");
       lines.splice(extendEndIndex, 0, ...extendLines);
       content = lines.join("\n");
@@ -198,9 +242,9 @@ export async function deletePage(pageName: string | undefined): Promise<void> {
   const { REPO_ROOT } = await import("../utils/paths");
   const glob = (await import("fast-glob")).default;
   const pageDirs = await glob("src/pages/*", { cwd: REPO_ROOT, onlyDirectories: true });
-  
+
   const availablePages: Array<{ value: string; name: string; pagePath: string; featureKey: string; fixtureName: string }> = [];
-  
+
   for (const dir of pageDirs) {
     const pageFiles = await glob("*.ts", { cwd: path.join(REPO_ROOT, dir) }).catch(() => []);
     for (const pageFile of pageFiles) {
@@ -209,11 +253,11 @@ export async function deletePage(pageName: string | undefined): Promise<void> {
         // Normalize PageName to kebab-case for comparison
         const normalizedPageName = normalizeToKey(PageName);
         if (!normalizedPageName) continue;
-        
+
         const fixtureName = toCamelCase(normalizedPageName) + "Page";
         const pagePath = path.join(REPO_ROOT, dir, pageFile);
         const featureKey = dir.split("/").pop() || "";
-        
+
         availablePages.push({
           value: normalizedPageName,
           name: `${PageName} (${featureKey})`,

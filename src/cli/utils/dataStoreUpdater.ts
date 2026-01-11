@@ -1,4 +1,4 @@
-// Utility to update DataStoreMap type when creating features.
+// Utility to update DataStoreMap type when creating and deleting features.
 import { readFileSafe, writeFileSafe } from "./fileOps";
 import { REPO_ROOT } from "./paths";
 import path from "path";
@@ -41,6 +41,34 @@ export async function addFeatureToDataStoreMap(featureKey: string): Promise<void
     const newEntry = `  ${keyToAdd}`;
     lines.splice(dataStoreMapEndIndex, 0, newEntry);
     content = lines.join("\n");
+    await writeFileSafe(dataStorePath, content, true);
+  }
+}
+
+/**
+ * Removes a feature's data store key from the DataStoreMap type.
+ */
+export async function removeFeatureFromDataStoreMap(featureKey: string): Promise<void> {
+  const dataStorePath = path.join(REPO_ROOT, "src", "utils", "dataStore.ts");
+  
+  let content = await readFileSafe(dataStorePath);
+  if (!content) {
+    return; // File doesn't exist, nothing to remove
+  }
+
+  const keyToRemove = `"${featureKey}.user": models.User;`;
+  
+  // Check if key exists
+  if (!content.includes(`"${featureKey}.user"`)) {
+    return; // Doesn't exist, nothing to remove
+  }
+
+  // Remove the line containing the key
+  const lines = content.split("\n");
+  const filteredLines = lines.filter((line) => !line.includes(`"${featureKey}.user"`));
+  
+  if (filteredLines.length < lines.length) {
+    content = filteredLines.join("\n");
     await writeFileSafe(dataStorePath, content, true);
   }
 }

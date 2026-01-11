@@ -34,7 +34,7 @@ export const paths = {
     path.join(REPO_ROOT, "src", "pages", featureKey),
   fixtures: () => path.join(REPO_ROOT, "tests", "fixtures", "test-fixtures.ts"),
   featureConfig: () => path.join(REPO_ROOT, "src", "testdata", "featureConfig.json"),
-  testDir: (featureKey: string) => path.join(REPO_ROOT, "tests", "e2e", featureKey),
+  testDir: (featureKey: string) => path.join(REPO_ROOT, "tests", featureKey),
   factory: (modelKey: string) =>
     path.join(REPO_ROOT, "src", "testdata", "factories", `${modelKey}.factory.ts`),
   factoriesIndex: () => path.join(REPO_ROOT, "src", "testdata", "factories", "index.ts"),

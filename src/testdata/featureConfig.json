@@ -1,1 +1,9 @@
-{}
+{
+  "login-page": {
+    "tag": "@login-page",
+    "planId": 99,
+    "suites": {
+      "50": "User Authentication Flow"
+    }
+  }
+}

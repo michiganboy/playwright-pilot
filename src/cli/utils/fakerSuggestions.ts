@@ -37,7 +37,9 @@ export function suggestFakerMethod(fieldName: string, fieldType: string): string
     case "Date":
       if (lowerName.includes("start") || lowerName.includes("begin")) return "faker.date.future()";
       if (lowerName.includes("end") || lowerName.includes("expire") || lowerName.includes("expiry")) {
-        return "faker.date.future()";
+        // For end dates, suggest a future date that's likely after the start date
+        // User should manually adjust to reference start date if needed: faker.date.future({ refDate: startTime })
+        return "faker.date.future({ years: 1 })";
       }
       if (lowerName.includes("created") || lowerName.includes("updated")) return "faker.date.recent()";
       if (lowerName.includes("birth") || lowerName.includes("past")) return "faker.date.past()";

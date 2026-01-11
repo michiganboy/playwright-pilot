@@ -53,9 +53,9 @@ program
 program
   .command("add:feature")
   .description("Create a new feature with test folder, config entry, and initial spec")
-  .argument("<FeatureName>", "Name of the feature (e.g., 'AppointmentBooking' or 'appointment-booking')")
+  .argument("[FeatureName]", "Name of the feature (optional - will prompt if not provided)")
   .option("-p, --plan-id <planId>", "Azure DevOps Plan ID (number)")
-  .action(async (featureName: string, options: { planId?: string }) => {
+  .action(async (featureName: string | undefined, options: { planId?: string }) => {
     try {
       const planId = options.planId ? parseInt(options.planId, 10) : undefined;
       await addFeature(featureName, planId);

@@ -37,4 +37,5 @@ export class {{PageName}}Page {
       throw new Error("{{PageName}}Page health check failed: container not visible");
     }
   }
+  {{loginDriverHelper}}
 }

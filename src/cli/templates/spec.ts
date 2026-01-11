@@ -1,6 +1,6 @@
-import { test } from "../../fixtures/test-fixtures";
-import * as factories from "../../../src/testdata/factories";
-import { load } from "../../../src/utils/dataStore";
+import { test } from "../fixtures/test-fixtures";
+import * as factories from "../../src/testdata/factories";
+import { load } from "../../src/utils/dataStore";
 
 // ---
 // Tests for {{description}}
