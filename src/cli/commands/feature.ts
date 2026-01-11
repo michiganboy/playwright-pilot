@@ -36,19 +36,52 @@ export async function addFeatureWithSuites(
     throw new Error(`Test directory already exists: ${testDir}`);
   }
 
-  // Prompt for planId if not provided
+  // Prompt for planId if not provided, with duplicate validation
   let finalPlanId = planId;
-  if (finalPlanId === undefined) {
-    const planIdInput = await input({
-      message: "Enter Azure DevOps Plan ID (number):",
-    });
-    finalPlanId = parseInt(planIdInput, 10);
-    if (isNaN(finalPlanId)) {
-      throw new Error("Plan ID must be a number");
+  while (finalPlanId === undefined || isNaN(finalPlanId)) {
+    if (finalPlanId === undefined) {
+      const planIdInput = await input({
+        message: "Enter Azure DevOps Plan ID (number):",
+      });
+      finalPlanId = parseInt(planIdInput, 10);
+      if (isNaN(finalPlanId)) {
+        console.log("⚠️  Plan ID must be a number.");
+        finalPlanId = undefined;
+        continue;
+      }
     }
+
+    // Check if planId is already used by another feature
+    if (config) {
+      const existingFeature = Object.entries(config).find(
+        ([key, feature]) => key !== featureKey && feature.planId === finalPlanId
+      );
+      if (existingFeature) {
+        console.log(`⚠️  Plan ID ${finalPlanId} is already used by feature "${existingFeature[0]}". Please enter a different plan ID.`);
+        finalPlanId = undefined;
+        continue;
+      }
+    }
+    break;
   }
 
   const finalSuites = Object.keys(suiteMapping).map((id) => parseInt(id, 10));
+  
+  // Validate suite IDs are not used by other features
+  if (config) {
+    for (const suiteId of finalSuites) {
+      const existingFeature = Object.entries(config).find(([key, feature]) => {
+        if (key === featureKey) return false; // Skip current feature
+        return suiteId.toString() in feature.suites;
+      });
+      if (existingFeature) {
+        const existingSuiteName = existingFeature[1].suites[suiteId.toString()];
+        throw new Error(
+          `Suite ID ${suiteId} is already used by feature "${existingFeature[0]}" (suite: "${existingSuiteName}"). Cannot create duplicate suite IDs across features.`
+        );
+      }
+    }
+  }
 
   // Check for matching pages
   const matchingPages = await findMatchingPages(featureKey);
@@ -121,6 +154,9 @@ export async function addFeatureWithSuites(
   const specTemplate = await loadTemplate("spec.ts");
   const createdSpecFiles: string[] = [];
 
+  // Check if this is a login page
+  const isLoginPage = pageFixture.toLowerCase().includes("login") || featureKey.toLowerCase().includes("login");
+
   // Create a spec file for each suite
   for (let i = 0; i < finalSuites.length; i++) {
     const suiteId = finalSuites[i];
@@ -130,17 +166,109 @@ export async function addFeatureWithSuites(
     const testId = `${10000 + specNumber}`;
     const fileNameBase = normalizeAndPrint(suiteName, "suite name");
 
-    const specContent = renderTemplate(specTemplate, {
-      featureKey,
-      tag: `@${featureKey}`,
-      planId: finalPlanId.toString(),
-      suites: suiteId.toString(), // Only show the specific suite ID for this spec
-      specId,
-      description: suiteName.replace(/-/g, " "),
-      testId,
-      pageFixture,
-      navigateMethod,
+    let specContent = "";
+    if (isLoginPage) {
+      // Login page: completely custom template with two test cases
+      specContent = `import { test } from "../fixtures/test-fixtures";
+import * as factories from "../../src/testdata/factories";
+import { load } from "../../src/utils/dataStore";
+
+// ---
+// Tests for ${suiteName.replace(/-/g, " ")}
+// Feature: ${featureKey}
+// Tag: @${featureKey}
+// ADO Plan ID: ${finalPlanId.toString()}
+// ADO Suite IDs: ${suiteId.toString()}
+// ---
+
+test.describe.serial("${specId} - ${suiteName.replace(/-/g, " ")} @${featureKey}", () => {
+  test("[${testId}] Login with valid credentials", async ({ globalActions }) => {
+    await test.step("Login to application", async () => {
+      await globalActions.login();
     });
+
+    await test.step("Verify successful login", async () => {
+      // Example assertions:
+      // await expect(page).toHaveURL(/dashboard/);
+      // await expect(page.locator('[data-testid="user-menu"]')).toBeVisible();
+    });
+  });
+
+  test("[${parseInt(testId) + 1}] invalid password", async ({ ${pageFixture} }) => {
+    const driver = ${pageFixture}.toLoginDriver();
+
+    await test.step("Attempt login with invalid password", async () => {
+      await driver.goto();
+      await driver.submit("user@test.com", "wrong-password");
+    });
+
+    await test.step("Verify failed login message", async () => {
+      // Example assertions:
+      // await expect(page.locator('[data-testid="error-message"]')).toBeVisible();
+      // await expect(page.locator('[data-testid="error-message"]')).toContainText("Invalid credentials");
+    });
+  });
+
+  // Example: Using factories to create test data
+  // test("[${parseInt(testId) + 2}] Create new user", async ({ userPage }) => {
+  //   const user = factories.createUser();
+  //   await set("test.user", user);
+  //   const userData = await get("test.user");
+  //   if (!userData) {
+  //     throw new Error("User data not found in data store.");
+  //   }
+  //
+  //   await test.step("Navigate to User Page", async () => {
+  //     await userPage.navigateToUser();
+  //   });
+  //
+  //   await test.step("Enter user data and create User", async () => {
+  //     // await userPage.fillFirstName(userData.firstName);
+  //     // await userPage.fillLastName(userData.lastName);
+  //     // await userPage.fillEmail(userData.email);
+  //     // await userPage.clickCreateButton();
+  //   });
+  // });
+});
+`;
+    } else {
+      // Non-login page: use normal template with commented factory example
+      const testExamples = `
+  // Example: Using factories to create test data
+  // test("[${parseInt(testId) + 1}] Create new user", async ({ userPage }) => {
+  //   const user = factories.createUser();
+  //   await set("test.user", user);
+  //   const userData = await get("test.user");
+  //   if (!userData) {
+  //     throw new Error("User data not found in data store.");
+  //   }
+  //
+  //   await test.step("Navigate to User Page", async () => {
+  //     await userPage.navigateToUser();
+  //   });
+  //
+  //   await test.step("Enter user data and create User", async () => {
+  //     // await userPage.fillFirstName(userData.firstName);
+  //     // await userPage.fillLastName(userData.lastName);
+  //     // await userPage.fillEmail(userData.email);
+  //     // await userPage.clickCreateButton();
+  //   });
+  // });
+`;
+
+      specContent = renderTemplate(specTemplate, {
+        featureKey,
+        tag: `@${featureKey}`,
+        planId: finalPlanId.toString(),
+        suites: suiteId.toString(), // Only show the specific suite ID for this spec
+        specId,
+        description: suiteName.replace(/-/g, " "),
+        testId,
+        pageFixture,
+        navigateMethod,
+        testExamples,
+      });
+    }
 
     const specFileName = `${specId}-${fileNameBase}.spec.ts`;
     await writeFileSafe(path.join(testDir, specFileName), specContent);
@@ -199,16 +327,33 @@ export async function addFeature(
     throw new Error(`Test directory already exists: ${testDir}`);
   }
 
-  // Prompt for planId if not provided
+  // Prompt for planId if not provided, with duplicate validation
   let finalPlanId = planId;
-  if (finalPlanId === undefined) {
-    const planIdInput = await input({
-      message: "Enter Azure DevOps Plan ID (number):",
-    });
-    finalPlanId = parseInt(planIdInput, 10);
-    if (isNaN(finalPlanId)) {
-      throw new Error("Plan ID must be a number");
+  while (finalPlanId === undefined || isNaN(finalPlanId)) {
+    if (finalPlanId === undefined) {
+      const planIdInput = await input({
+        message: "Enter Azure DevOps Plan ID (number):",
+      });
+      finalPlanId = parseInt(planIdInput, 10);
+      if (isNaN(finalPlanId)) {
+        console.log("⚠️  Plan ID must be a number.");
+        finalPlanId = undefined;
+        continue;
+      }
     }
+
+    // Check if planId is already used by another feature
+    if (config) {
+      const existingFeature = Object.entries(config).find(
+        ([key, feature]) => key !== featureKey && feature.planId === finalPlanId
+      );
+      if (existingFeature) {
+        console.log(`⚠️  Plan ID ${finalPlanId} is already used by feature "${existingFeature[0]}". Please enter a different plan ID.`);
+        finalPlanId = undefined;
+        continue;
+      }
+    }
+    break;
   }
 
   // Prompt for suite names first, then IDs (more intuitive - names are meaningful)
@@ -259,9 +404,23 @@ export async function addFeature(
         suiteId = parseInt(idInput.trim(), 10);
         if (isNaN(suiteId)) {
           console.log("⚠️  Suite ID must be a number.");
-        } else if (suiteId.toString() in suiteMapping) {
-          console.log("⚠️  This suite ID is already used. Please enter a different ID.");
           suiteId = null;
+        } else if (suiteId.toString() in suiteMapping) {
+          console.log("⚠️  This suite ID is already used in this feature. Please enter a different ID.");
+          suiteId = null;
+        } else {
+          // Check if suite ID is already used by another feature
+          if (config) {
+            const existingFeature = Object.entries(config).find(([key, feature]) => {
+              if (key === featureKey) return false; // Skip current feature
+              return suiteId !== null && suiteId.toString() in feature.suites;
+            });
+            if (existingFeature) {
+              const existingSuiteName = existingFeature[1].suites[suiteId!.toString()];
+              console.log(`⚠️  Suite ID ${suiteId} is already used by feature "${existingFeature[0]}" (suite: "${existingSuiteName}"). Please enter a different suite ID.`);
+              suiteId = null;
+            }
+          }
         }
       }
       suiteMapping[suiteId.toString()] = normalizedSuiteName; // Store normalized name
@@ -341,6 +500,9 @@ export async function addFeature(
   const specTemplate = await loadTemplate("spec.ts");
   const createdSpecFiles: string[] = [];
 
+  // Check if this is a login page
+  const isLoginPage = pageFixture.toLowerCase().includes("login") || featureKey.toLowerCase().includes("login");
+
   // Create a spec file for each suite
   for (let i = 0; i < finalSuites.length; i++) {
     const suiteId = finalSuites[i];
@@ -350,17 +512,109 @@ export async function addFeature(
     const testId = `${10000 + specNumber}`;
     const fileNameBase = normalizeAndPrint(suiteName, "suite name");
 
-    const specContent = renderTemplate(specTemplate, {
-      featureKey,
-      tag: `@${featureKey}`,
-      planId: finalPlanId.toString(),
-      suites: suiteId.toString(), // Only show the specific suite ID for this spec
-      specId,
-      description: suiteName.replace(/-/g, " "),
-      testId,
-      pageFixture,
-      navigateMethod,
+    let specContent = "";
+    if (isLoginPage) {
+      // Login page: completely custom template with two test cases
+      specContent = `import { test } from "../fixtures/test-fixtures";
+import * as factories from "../../src/testdata/factories";
+import { load } from "../../src/utils/dataStore";
+
+// ---
+// Tests for ${suiteName.replace(/-/g, " ")}
+// Feature: ${featureKey}
+// Tag: @${featureKey}
+// ADO Plan ID: ${finalPlanId.toString()}
+// ADO Suite IDs: ${suiteId.toString()}
+// ---
+
+test.describe.serial("${specId} - ${suiteName.replace(/-/g, " ")} @${featureKey}", () => {
+  test("[${testId}] Login with valid credentials", async ({ globalActions }) => {
+    await test.step("Login to application", async () => {
+      await globalActions.login();
     });
+
+    await test.step("Verify successful login", async () => {
+      // Example assertions:
+      // await expect(page).toHaveURL(/dashboard/);
+      // await expect(page.locator('[data-testid="user-menu"]')).toBeVisible();
+    });
+  });
+
+  test("[${parseInt(testId) + 1}] invalid password", async ({ ${pageFixture} }) => {
+    const driver = ${pageFixture}.toLoginDriver();
+
+    await test.step("Attempt login with invalid password", async () => {
+      await driver.goto();
+      await driver.submit("user@test.com", "wrong-password");
+    });
+
+    await test.step("Verify failed login message", async () => {
+      // Example assertions:
+      // await expect(page.locator('[data-testid="error-message"]')).toBeVisible();
+      // await expect(page.locator('[data-testid="error-message"]')).toContainText("Invalid credentials");
+    });
+  });
+
+  // Example: Using factories to create test data
+  // test("[${parseInt(testId) + 2}] Create new user", async ({ userPage }) => {
+  //   const user = factories.createUser();
+  //   await set("test.user", user);
+  //   const userData = await get("test.user");
+  //   if (!userData) {
+  //     throw new Error("User data not found in data store.");
+  //   }
+  //
+  //   await test.step("Navigate to User Page", async () => {
+  //     await userPage.navigateToUser();
+  //   });
+  //
+  //   await test.step("Enter user data and create User", async () => {
+  //     // await userPage.fillFirstName(userData.firstName);
+  //     // await userPage.fillLastName(userData.lastName);
+  //     // await userPage.fillEmail(userData.email);
+  //     // await userPage.clickCreateButton();
+  //   });
+  // });
+});
+`;
+    } else {
+      // Non-login page: use normal template with commented factory example
+      const testExamples = `
+  // Example: Using factories to create test data
+  // test("[${parseInt(testId) + 1}] Create new user", async ({ userPage }) => {
+  //   const user = factories.createUser();
+  //   await set("test.user", user);
+  //   const userData = await get("test.user");
+  //   if (!userData) {
+  //     throw new Error("User data not found in data store.");
+  //   }
+  //
+  //   await test.step("Navigate to User Page", async () => {
+  //     await userPage.navigateToUser();
+  //   });
+  //
+  //   await test.step("Enter user data and create User", async () => {
+  //     // await userPage.fillFirstName(userData.firstName);
+  //     // await userPage.fillLastName(userData.lastName);
+  //     // await userPage.fillEmail(userData.email);
+  //     // await userPage.clickCreateButton();
+  //   });
+  // });
+`;
+
+      specContent = renderTemplate(specTemplate, {
+        featureKey,
+        tag: `@${featureKey}`,
+        planId: finalPlanId.toString(),
+        suites: suiteId.toString(), // Only show the specific suite ID for this spec
+        specId,
+        description: suiteName.replace(/-/g, " "),
+        testId,
+        pageFixture,
+        navigateMethod,
+        testExamples,
+      });
+    }
 
     const specFileName = `${specId}-${fileNameBase}.spec.ts`;
     await writeFileSafe(path.join(testDir, specFileName), specContent);

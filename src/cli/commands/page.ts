@@ -92,20 +92,20 @@ export async function addPage(pageName: string | undefined, featureKey?: string)
   const loginDriverHelper =
     PageName === "Login"
       ? `
-        // Creates a LoginDriver adapter for GlobalActions.login().
-        toLoginDriver() {
-          return {
-            goto: async () => {
-              await this.navigateToLogin();
-            },
-            submit: async (username: string, password: string) => {
-              throw new Error(
-                "Login submission is not configured. Implement submit() in LoginPage.toLoginDriver() using your app's locators."
-              );
-            },
-          };
-        }
-      `
+  // Creates a LoginDriver adapter for GlobalActions.login().
+  toLoginDriver() {
+    return {
+      goto: async () => {
+        await this.navigateToLogin();
+      },
+      submit: async (username: string, password: string) => {
+        throw new Error(
+          "Login submission is not configured. Implement submit() in LoginPage.toLoginDriver() using your app's locators."
+        );
+      },
+    };
+  }
+`
       : "";
 
   const content = renderTemplate(template, {

@@ -3,7 +3,7 @@ import { readFileSafe, writeFileSafe, fileExists, deleteFileSafe } from "../util
 import { paths, REPO_ROOT } from "../utils/paths";
 import { normalizeAndPrint, normalizeToKey, toPascalCase } from "../utils/normalize";
 import { getFactoryReferencedFiles } from "../utils/validation";
-import { input, select } from "@inquirer/prompts";
+import { input, select, confirm } from "@inquirer/prompts";
 import path from "path";
 
 /**
@@ -21,16 +21,24 @@ function factoryExists(modelKey: string, indexPath: string, indexContent: string
 }
 
 /**
+ * Checks if a model already exists.
+ */
+function modelExists(modelKey: string): boolean {
+  const modelPath = paths.model(modelKey);
+  return fileExists(modelPath);
+}
+
+/**
  * Adds a new factory.
  */
 export async function addFactory(factoryName?: string): Promise<void> {
-  // Prompt for factory name if not provided, and keep prompting until unique
-  let finalFactoryName = factoryName;
-  let modelKey: string;
-  let ModelName: string;
-
   const indexPath = paths.factoriesIndex();
   const indexContent = await readFileSafe(indexPath);
+
+  // Step 1: Factory name validation
+  let finalFactoryName = factoryName;
+  let factoryKey: string;
+  let FactoryName: string;
 
   while (true) {
     if (!finalFactoryName || !finalFactoryName.trim()) {
@@ -38,47 +46,226 @@ export async function addFactory(factoryName?: string): Promise<void> {
         message: "Enter factory name (or press Enter to exit):",
       });
       if (!finalFactoryName.trim()) {
-        // User pressed Enter to exit
         throw new Error("Factory creation cancelled.");
       }
     }
 
-    // Normalize without printing (we'll print after validation)
-    const tempModelKey = normalizeToKey(finalFactoryName);
-    if (!tempModelKey) {
+    const tempFactoryKey = normalizeToKey(finalFactoryName);
+    if (!tempFactoryKey) {
       console.log("⚠️  Invalid factory name. Please enter a valid name.");
       finalFactoryName = "";
       continue;
     }
 
-    // Check if factory exists BEFORE showing any success indicators
-    if (factoryExists(tempModelKey, indexPath, indexContent)) {
-      const tempModelName = toPascalCase(finalFactoryName);
-      console.log(`⚠️  Factory "${tempModelName}" already exists. Please enter a different factory name or press Enter to exit.`);
-      finalFactoryName = ""; // Reset to prompt again
+    // Check if factory exists
+    if (factoryExists(tempFactoryKey, indexPath, indexContent)) {
+      const tempFactoryName = toPascalCase(finalFactoryName);
+      const useExisting = await confirm({
+        message: `Factory "${tempFactoryName}" already exists. Use existing factory?`,
+        default: false,
+      });
+      if (useExisting) {
+        console.log(`No new factory created. User chose to use existing factory "${tempFactoryName}".`);
+        return;
+      }
+      // User declined, prompt for new name
+      finalFactoryName = "";
       continue;
     }
 
-    // Factory name is unique, now normalize and print
-    modelKey = normalizeAndPrint(finalFactoryName, "factory name");
-    ModelName = toPascalCase(finalFactoryName);
+    // Factory name is unique
+    factoryKey = normalizeAndPrint(finalFactoryName, "factory name");
+    FactoryName = toPascalCase(finalFactoryName);
     break;
   }
 
-  // Ensure model exists before creating a factory
-  const modelPath = paths.model(modelKey);
-  if (!fileExists(modelPath)) {
+  // Step 2: Model name resolution
+  let modelKey: string;
+  let ModelName: string;
+
+  // Check if model exists (using factory name as model name)
+  if (modelExists(factoryKey)) {
+    const useExistingModel = await confirm({
+      message: `Model "${FactoryName}" already exists. Reuse model?`,
+      default: true,
+    });
+    if (useExistingModel) {
+      console.log(`No new factory created. Existing model "${FactoryName}" is being used.`);
+      return;
+    } else {
+      // Prompt for new model name (with validation loop)
+      while (true) {
+        const newModelName = await input({
+          message: "Enter model name:",
+        });
+        if (!newModelName.trim()) {
+          console.log("⚠️  Model name is required. Please enter a name.");
+          continue;
+        }
+
+        const tempModelKey = normalizeToKey(newModelName);
+        if (!tempModelKey) {
+          console.log("⚠️  Invalid model name. Please enter a valid name.");
+          continue;
+        }
+
+        // Check if this model name exists
+        if (modelExists(tempModelKey)) {
+          const tempModelName = toPascalCase(newModelName);
+          const reuseModel = await confirm({
+            message: `Model "${tempModelName}" already exists. Reuse model?`,
+            default: true,
+          });
+          if (reuseModel) {
+            modelKey = tempModelKey;
+            ModelName = tempModelName;
+            break;
+          }
+          // User declined, continue loop to prompt again
+          continue;
+        }
+
+        // Model name is unique
+        modelKey = normalizeAndPrint(newModelName, "model name");
+        ModelName = toPascalCase(newModelName);
+        break;
+      }
+    }
+  } else {
+    // Model doesn't exist, auto-create it using factory name
+    modelKey = factoryKey;
+    ModelName = FactoryName;
+  }
+
+  // Step 3: Create model if it doesn't exist
+  if (!modelExists(modelKey)) {
+    await createModelFile(modelKey, ModelName);
+    await addModelToIndex(modelKey, ModelName);
+  }
+
+  // Step 4: Check if factory already exists for this model
+  if (factoryExists(modelKey, indexPath, indexContent)) {
+    const existingFactoryName = toPascalCase(modelKey);
     throw new Error(
-      `Model "${ModelName}" does not exist. Create the model first before creating a factory.`
+      `A factory already exists for model "${ModelName}". Cannot create another factory for the same model.`
     );
   }
+
+  // Step 5: Create factory (factory file is named after model, not factory name)
+  await createFactoryFile(modelKey, ModelName);
+  await addFactoryExport(modelKey);
+
+  // Step 6: Success message
+  console.log(`✓ Factory "${FactoryName}" created and associated to model "${ModelName}"`);
+  console.log(`\n📋 Usage example:`);
+  console.log(`\n  const ${modelKey} = factories.create${ModelName}();`);
+  console.log(`  await set("test.${modelKey}", ${modelKey});`);
+  console.log(`  const ${modelKey}Data = await get("test.${modelKey}");`);
+  console.log(`\n  test("Example test", async ({ page }) => {`);
+  console.log(`    const id = ${modelKey}Data.id;`);
+  console.log(`    const email = ${modelKey}Data.email;`);
+  console.log(`    // Use ${modelKey}Data in your test`);
+  console.log(`  });`);
+}
+
+/**
+ * Creates a model file with placeholder fields.
+ */
+async function createModelFile(modelKey: string, ModelName: string): Promise<void> {
+  const modelPath = paths.model(modelKey);
+  const templatePath = paths.templates("model.ts");
+  const template = await readFileSafe(templatePath);
+
+  if (!template) {
+    throw new Error(`Model template not found: ${templatePath}`);
+  }
+
+  const placeholderFields = "  id: string;\n  email: string;";
+  const modelContent = template
+    .replace(/{{ModelName}}/g, ModelName)
+    .replace(/{{fields}}/g, placeholderFields);
+
+  await writeFileSafe(modelPath, modelContent);
+}
+
+/**
+ * Adds a model to models/index.ts (export, import, and ModelMap entry).
+ */
+async function addModelToIndex(modelKey: string, ModelName: string): Promise<void> {
+  const indexPath = paths.modelsIndex();
+  let content = await readFileSafe(indexPath);
+  if (!content) {
+    content = "";
+  }
+
+  const lines = content.split("\n");
+
+  // Add export line if it doesn't exist
+  const exportLine = `export * from './${modelKey}';`;
+  const exportPattern = new RegExp(`export \\* from ['"]\\./${modelKey}['"];`, "g");
+  if (!exportPattern.test(content)) {
+    // Find the last export line and add after it
+    let lastExportIndex = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith("export * from")) {
+        lastExportIndex = i;
+      }
+    }
+    if (lastExportIndex >= 0) {
+      lines.splice(lastExportIndex + 1, 0, exportLine);
+    } else {
+      // No exports yet, add at the beginning
+      lines.unshift(exportLine);
+    }
+  }
+
+  // Rebuild content from lines
+  content = lines.join("\n");
+
+  // Add import line if it doesn't exist
+  const importLine = `import type { ${ModelName} } from './${modelKey}';`;
+  const importPattern = new RegExp(`import type \\{ ${ModelName} \\} from ['"]\\./${modelKey}['"];`, "g");
+  if (!importPattern.test(content)) {
+    // Find where ModelMap starts to insert import before it
+    const modelMapIndex = content.indexOf("export interface ModelMap");
+    if (modelMapIndex >= 0) {
+      // Insert import before ModelMap (with proper spacing)
+      const beforeModelMap = content.substring(0, modelMapIndex).trim();
+      const afterModelMap = content.substring(modelMapIndex);
+      content = beforeModelMap + "\n\n" + importLine + "\n\n" + afterModelMap;
+    } else {
+      // No ModelMap, add import at the end
+      content = content.trim() + "\n\n" + importLine;
+    }
+  }
+
+  // Add to ModelMap if it doesn't exist
+  const modelMapRegex = /export interface ModelMap \{([\s\S]*?)\}/;
+  const modelMapMatch = content.match(modelMapRegex);
+  if (modelMapMatch) {
+    const modelMapContent = modelMapMatch[1];
+    const modelMapEntry = `  ${ModelName}: ${ModelName};`;
+    if (!modelMapContent.includes(modelMapEntry)) {
+      // Add entry before closing brace
+      const trimmedContent = modelMapContent.trim();
+      const newModelMapContent = trimmedContent
+        ? trimmedContent + "\n" + modelMapEntry
+        : modelMapEntry;
+      content = content.replace(modelMapRegex, `export interface ModelMap {\n${newModelMapContent}\n}`);
+    }
+  } else {
+    // ModelMap doesn't exist, create it
+    const modelMapSection = `\n\nexport interface ModelMap {\n  ${ModelName}: ${ModelName};\n}`;
+    content = content.trim() + modelMapSection;
+  }
+
+  await writeFileSafe(indexPath, content, true);
 }
 
 /**
  * Creates a factory file.
  */
 async function createFactoryFile(modelKey: string, ModelName: string): Promise<void> {
-
   const factoryPath = paths.factory(modelKey);
 
   const templatePath = paths.templates("factory.ts");
