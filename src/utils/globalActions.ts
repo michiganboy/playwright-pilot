@@ -1,6 +1,13 @@
 // Defines cross-application actions such as login and navigation.
 import type { Page } from "@playwright/test";
-import { E2eTestFlowsPage } from "../pages/e2e-test-flows/E2eTestFlowsPage";
+
+export type LoginDriver = {
+  // Navigates to the login page (or ensures the login form is visible).
+  goto(): Promise<void>;
+
+  // Performs the login interaction using provided credentials.
+  submit(username: string, password: string): Promise<void>;
+};
 
 // Provides reusable actions that apply across multiple areas of the application.
 export class GlobalActions {
@@ -9,14 +16,16 @@ export class GlobalActions {
     appReadyIndicator: '[data-testid="app-ready"]',
   };
 
-  private loginPage: E2eTestFlowsPage;
+  constructor(private page: Page, private loginDriver?: LoginDriver) { }
 
-  constructor(private page: Page) {
-    this.loginPage = new E2eTestFlowsPage(page);
-  }
-
-  // Logs into the application using the login form and provided credentials.
+  // Logs into the application using the configured login driver.
   async login(username?: string, password?: string) {
+    if (!this.loginDriver) {
+      throw new Error(
+        "Login is not configured. Provide a LoginDriver implementation in your fixtures to enable globalActions.login()."
+      );
+    }
+
     const loginUsername = username || process.env.LOGIN_EMAIL;
     const loginPassword = password || process.env.LOGIN_PASSWORD;
 
@@ -26,9 +35,8 @@ export class GlobalActions {
       );
     }
 
-    await this.loginPage.navigateToE2eTestFlows();
-    await this.loginPage.enterLoginCredentials(loginUsername, loginPassword);
-    await this.loginPage.clickSubmitButton();
+    await this.loginDriver.goto();
+    await this.loginDriver.submit(loginUsername, loginPassword);
     await this.waitForAppReady();
   }
 

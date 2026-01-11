@@ -1,9 +1,9 @@
 {
-  "e2e-test-flows": {
-    "tag": "@e2e-test-flows",
-    "planId": 2,
+  "login-page": {
+    "tag": "@login-page",
+    "planId": 99,
     "suites": {
-      "7": "Authentication"
+      "50": "User Authentication Flow"
     }
   }
 }
