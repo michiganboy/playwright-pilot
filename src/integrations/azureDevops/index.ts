@@ -397,9 +397,9 @@ function extractFeatureFromPath(filePath: string): string | null {
   // Normalize path separators so regex works on Windows and POSIX paths
   const normalizedPath = filePath.replace(/\\/g, "/");
   // Support paths with or without a leading "tests/" segment, e.g.:
-  // - "tests/authentication/..." (full repo path)
-  // - "e2e/authentication/..." (Playwright JSON relative to tests root)
-  const match = normalizedPath.match(/(?:^|\/)(?:tests\/)?e2e\/([^\/]+)\//);
+  // - "tests/login-page/..." (full repo path)
+  // - "login-page/..." (Playwright JSON relative to tests root)
+  const match = normalizedPath.match(/(?:^|\/)(?:tests\/)?([^\/]+)\//);
   if (!match) {
     return null;
   }
