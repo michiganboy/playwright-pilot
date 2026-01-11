@@ -24,7 +24,7 @@ program
 
 // Add commands
 program
-  .command("add:page")
+  .command("page:add")
   .description("Create a new page object and wire it into fixtures")
   .argument("[PageName]", "Name of the page (optional - will prompt if not provided)")
   .option("-f, --feature <featureKey>", "Feature key for the page directory")
@@ -38,7 +38,7 @@ program
   });
 
 program
-  .command("delete:page")
+  .command("page:delete")
   .description("Delete a page object and unwire it from fixtures")
   .argument("[PageName]", "Name of the page to delete (optional - will prompt if not provided)")
   .action(async (pageName: string | undefined) => {
@@ -51,7 +51,7 @@ program
   });
 
 program
-  .command("add:feature")
+  .command("feature:add")
   .description("Create a new feature with test folder, config entry, and initial spec")
   .argument("[FeatureName]", "Name of the feature (optional - will prompt if not provided)")
   .option("-p, --plan-id <planId>", "Azure DevOps Plan ID (number)")
@@ -66,7 +66,7 @@ program
   });
 
 program
-  .command("delete:feature")
+  .command("feature:delete")
   .description("Delete a feature (test folder and config entry)")
   .argument("[FeatureName]", "Name of the feature to delete (optional - will prompt if not provided)")
   .action(async (featureName: string | undefined) => {
@@ -79,7 +79,7 @@ program
   });
 
 program
-  .command("add:spec")
+  .command("spec:add")
   .description("Create a new suite spec under an existing feature")
   .option("-f, --feature <featureKey>", "Feature key (must already exist)")
   .action(async (options: { feature?: string }) => {
@@ -92,7 +92,7 @@ program
   });
 
 program
-  .command("add:suite")
+  .command("suite:add")
   .description("Create a new suite under an existing feature")
   .option("-f, --feature <featureKey>", "Feature key (must already exist)")
   .action(async (options: { feature?: string }) => {
@@ -105,7 +105,7 @@ program
   });
 
 program
-  .command("delete:spec")
+  .command("spec:delete")
   .description("Delete a suite spec and remove it from feature config")
   .option("-f, --feature <featureKey>", "Feature key")
   .option("-s, --suite <suiteName>", "Suite name")
@@ -119,7 +119,7 @@ program
   });
 
 program
-  .command("delete:suite")
+  .command("suite:delete")
   .description("Delete a suite and remove it from feature config")
   .option("-f, --feature <featureKey>", "Feature key")
   .option("-s, --suite <suiteName>", "Suite name")
@@ -133,7 +133,7 @@ program
   });
 
 program
-  .command("add:factory")
+  .command("factory:add")
   .description("Create a new data factory and add it to barrel exports")
   .argument("[ModelName]", "Name of the model (optional - will prompt if not provided)")
   .action(async (modelName: string | undefined) => {
@@ -146,7 +146,7 @@ program
   });
 
 program
-  .command("delete:factory")
+  .command("factory:delete")
   .description("Delete a factory and remove it from barrel exports")
   .argument("[FactoryName]", "Name of the factory to delete (optional - will prompt if not provided)")
   .action(async (factoryName: string | undefined) => {
