@@ -1,2 +1,3 @@
-export * from './user.factory';
-export * from './schedule.factory';
+// Factory exports will be added here automatically by the CLI
+
+export { };

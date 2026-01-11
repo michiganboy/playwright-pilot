@@ -89,18 +89,18 @@ export async function addPage(pageName: string | undefined, featureKey?: string)
 
   // Load template
   const template = await loadTemplate("page.ts");
-  const loginDriverHelper =
+  const loginPilotHelper =
     PageName === "Login"
       ? `
-  // Creates a LoginDriver adapter for GlobalActions.login().
-  toLoginDriver() {
+  // Creates a LoginPilot adapter for AutoPilot.login().
+  toLoginPilot() {
     return {
       goto: async () => {
         await this.navigateToLogin();
       },
       submit: async (username: string, password: string) => {
         throw new Error(
-          "Login submission is not configured. Implement submit() in LoginPage.toLoginDriver() using your app's locators."
+          "Login submission is not configured. Implement submit() in LoginPage.toLoginPilot() using your app's locators."
         );
       },
     };
@@ -113,7 +113,7 @@ export async function addPage(pageName: string | undefined, featureKey?: string)
     pageKey: normalizedPageName!,
     description: normalizedPageName!.replace(/-/g, " "),
     modelImports: "", // Can be enhanced later
-    loginDriverHelper,
+    loginPilotHelper,
   });
 
 
@@ -143,7 +143,7 @@ async function wirePageFixture(PageName: string, fixtureName: string, featureKey
   // Add import - insert after the last import line
   const importLine = `import { ${PageName}Page } from "../../src/pages/${featureKey}/${PageName}Page";`;
   if (!content.includes(importLine)) {
-    // Find the last import line (before GlobalActions or any other non-page import)
+    // Find the last import line (before AutoPilot or any other non-page import)
     const lines = content.split("\n");
     let lastImportIndex = -1;
     for (let i = 0; i < lines.length; i++) {

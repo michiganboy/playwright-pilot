@@ -1,38 +1,33 @@
 // Extends Playwright test with typed fixtures for page objects and shared helpers.
 import { test as base, expect } from "@playwright/test";
-import { LoginPage } from "../../src/pages/login-page/LoginPage";
-import { GlobalActions, type LoginDriver } from "../../src/utils/globalActions";
+import { AutoPilot, type LoginPilot } from "../../src/utils/autoPilot";
 
 type Fixtures = {
-  globalActions: GlobalActions;
-  loginDriver: LoginDriver;
-  loginPage: LoginPage;
+  autoPilot: AutoPilot;
+  loginPilot: LoginPilot;
 };
 
 export const test = base.extend<Fixtures>({
-  loginDriver: async ({ }, use) => {
-    const driver: LoginDriver = {
+  loginPilot: async ({ }, use) => {
+    const pilot: LoginPilot = {
       async goto() {
         throw new Error(
-          "Login is not configured. Provide a LoginDriver implementation in your fixtures to enable globalActions.login()."
+          "Login is not configured. Provide a LoginPilot implementation in your fixtures to enable autoPilot.login()."
         );
       },
       async submit() {
         throw new Error(
-          "Login is not configured. Provide a LoginDriver implementation in your fixtures to enable globalActions.login()."
+          "Login is not configured. Provide a LoginPilot implementation in your fixtures to enable autoPilot.login()."
         );
       },
     };
 
-    await use(driver);
+    await use(pilot);
   },
 
 
-  globalActions: async ({ page, loginDriver }, use) => {
-    await use(new GlobalActions(page, loginDriver));
-  },
-  loginPage: async ({ page }, use) => {
-    await use(new LoginPage(page));
+  autoPilot: async ({ page, loginPilot }, use) => {
+    await use(new AutoPilot(page, loginPilot));
   },
 });
 
