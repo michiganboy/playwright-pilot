@@ -23,9 +23,8 @@ test.describe.serial("{{specId}} - {{description}} {{tag}}", () => {
     });
 
     await test.step("Perform action", async () => {
-      const email = user.email;
-      const password = user.password;
-      // TODO: Use the test data variables in your test steps
+      // Your code here...
     });
   });
+  {{testExamples}}
 });

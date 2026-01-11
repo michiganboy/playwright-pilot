@@ -36,7 +36,7 @@ interface FeatureConfig {
 export async function addSpec(featureKey?: string): Promise<void> {
   // Get all available features
   const availableFeatures = getAvailableFeatureKeys();
-  
+
   if (availableFeatures.length === 0) {
     throw new Error("No features found. Create a feature first using 'pilot add:feature'.");
   }
@@ -62,7 +62,7 @@ export async function addSpec(featureKey?: string): Promise<void> {
   // We'll validate against existing feature config if it exists
   let suiteName: string | null = null;
   let suiteId: number | null = null;
-  
+
   // Load config early to check for duplicates
   const earlyConfig = await readJsonSafe<FeatureConfig>(paths.featureConfig());
   const existingFeature = earlyConfig && earlyConfig[normalizedFeatureKey] ? earlyConfig[normalizedFeatureKey] : null;
@@ -72,7 +72,7 @@ export async function addSpec(featureKey?: string): Promise<void> {
     const suiteNameInput = await input({
       message: "Enter suite name:",
     });
-    
+
     if (!suiteNameInput.trim()) {
       console.log(warning("Suite name is required. Please enter a name."));
       continue;
@@ -103,7 +103,7 @@ export async function addSpec(featureKey?: string): Promise<void> {
         continue; // Re-prompt for suite name
       }
     }
-    
+
     suiteName = normalizedName;
   }
 
@@ -113,7 +113,7 @@ export async function addSpec(featureKey?: string): Promise<void> {
       message: `Enter Azure DevOps Suite ID for "${suiteName}":`,
     });
     const parsedId = parseInt(idInput.trim(), 10);
-    
+
     if (isNaN(parsedId)) {
       console.log(warning("Suite ID must be a number. Please enter a valid number."));
       continue;
@@ -130,13 +130,13 @@ export async function addSpec(featureKey?: string): Promise<void> {
       }
       // If same ID and name, that's fine (reusing existing suite)
     }
-    
+
     suiteId = parsedId;
   }
 
   // Check if feature exists (duplicate validation already done above via re-prompting)
   const config = await readJsonSafe<FeatureConfig>(paths.featureConfig());
-  
+
   // If feature exists and we're reusing an existing suite (same ID and name), let user know
   if (config && config[normalizedFeatureKey]) {
     const feature = config[normalizedFeatureKey];
@@ -148,7 +148,7 @@ export async function addSpec(featureKey?: string): Promise<void> {
       }
     }
   }
-  
+
   if (!config || !config[normalizedFeatureKey]) {
     // Feature doesn't exist - offer to create it
     const shouldCreate = await confirm({
@@ -194,7 +194,7 @@ export async function addSpec(featureKey?: string): Promise<void> {
 
   // Try to find a page fixture for this feature
   const pageFixture = await findPageFixtureForFeature(normalizedFeatureKey);
-  
+
   // Generate navigate method name from page fixture
   // Convert "newAppointmentsPage" -> "newAppointments" -> "new-appointments" -> "NewAppointments" -> "navigateToNewAppointments"
   let navigateMethod = "goto"; // fallback
@@ -209,19 +209,115 @@ export async function addSpec(featureKey?: string): Promise<void> {
   // Use suite name for filename
   const fileNameBase = normalizeAndPrint(suiteNameForFile, "suite name");
 
-  // Load template and render
-  const specTemplate = await loadTemplate("spec.ts");
-  const specContent = renderTemplate(specTemplate, {
-    featureKey: normalizedFeatureKey,
-    tag: feature.tag,
-    planId: feature.planId.toString(),
-    suites: selectedSuiteId.toString(), // Only show the specific suite ID for this spec
-    specId,
-    description: suiteNameForFile.replace(/-/g, " "),
-    testId,
-    pageFixture,
-    navigateMethod,
+  // Generate test examples based on page type
+  // Check both pageFixture and featureKey to catch login pages even if page doesn't exist yet
+  const isLoginPage = pageFixture.toLowerCase().includes("login") || normalizedFeatureKey.toLowerCase().includes("login");
+  let specContent = "";
+
+  if (isLoginPage) {
+    // Login page: completely custom template with two test cases
+    specContent = `import { test } from "../fixtures/test-fixtures";
+import * as factories from "../../src/testdata/factories";
+import { load } from "../../src/utils/dataStore";
+
+// ---
+// Tests for ${suiteNameForFile.replace(/-/g, " ")}
+// Feature: ${normalizedFeatureKey}
+// Tag: ${feature.tag}
+// ADO Plan ID: ${feature.planId.toString()}
+// ADO Suite IDs: ${selectedSuiteId.toString()}
+// ---
+
+test.describe.serial("${specId} - ${suiteNameForFile.replace(/-/g, " ")} ${feature.tag}", () => {
+  test("[${testId}] Login with valid credentials", async ({ globalActions }) => {
+    await test.step("Login to application", async () => {
+      await globalActions.login();
+    });
+
+    await test.step("Verify successful login", async () => {
+      // Example assertions:
+      // await expect(page).toHaveURL(/dashboard/);
+      // await expect(page.locator('[data-testid="user-menu"]')).toBeVisible();
+    });
   });
+
+  test("[${parseInt(testId) + 1}] invalid password", async ({ ${pageFixture} }) => {
+    const driver = ${pageFixture}.toLoginDriver();
+
+    await test.step("Attempt login with invalid password", async () => {
+      await driver.goto();
+      await driver.submit("user@test.com", "wrong-password");
+    });
+
+    await test.step("Verify failed login message", async () => {
+      // Example assertions:
+      // await expect(page.locator('[data-testid="error-message"]')).toBeVisible();
+      // await expect(page.locator('[data-testid="error-message"]')).toContainText("Invalid credentials");
+    });
+  });
+
+  // Example: Using factories to create test data
+  // test("[${parseInt(testId) + 2}] Create new user", async ({ userPage }) => {
+  //   const user = factories.createUser();
+  //   await set("test.user", user);
+  //   const userData = await get("test.user");
+  //   if (!userData) {
+  //     throw new Error("User data not found in data store.");
+  //   }
+  //
+  //   await test.step("Navigate to User Page", async () => {
+  //     await userPage.navigateToUser();
+  //   });
+  //
+  //   await test.step("Enter user data and create User", async () => {
+  //     // await userPage.fillFirstName(userData.firstName);
+  //     // await userPage.fillLastName(userData.lastName);
+  //     // await userPage.fillEmail(userData.email);
+  //     // await userPage.clickCreateButton();
+  //   });
+  // });
+});
+`;
+  } else {
+    // Non-login page: use normal template with commented factory example
+    const testExamples = `
+  // Example: Using factories to create test data
+  // test("[${parseInt(testId) + 1}] Create new user", async ({ userPage }) => {
+  //   const user = factories.createUser();
+  //   await set("test.user", user);
+  //   const userData = await get("test.user");
+  //   if (!userData) {
+  //     throw new Error("User data not found in data store.");
+  //   }
+  //
+  //   await test.step("Navigate to User Page", async () => {
+  //     await userPage.navigateToUser();
+  //   });
+  //
+  //   await test.step("Enter user data and create User", async () => {
+  //     // await userPage.fillFirstName(userData.firstName);
+  //     // await userPage.fillLastName(userData.lastName);
+  //     // await userPage.fillEmail(userData.email);
+  //     // await userPage.clickCreateButton();
+  //   });
+  // });
+`;
+
+    // Load template and render
+    const specTemplate = await loadTemplate("spec.ts");
+    specContent = renderTemplate(specTemplate, {
+      featureKey: normalizedFeatureKey,
+      tag: feature.tag,
+      planId: feature.planId.toString(),
+      suites: selectedSuiteId.toString(), // Only show the specific suite ID for this spec
+      specId,
+      description: suiteNameForFile.replace(/-/g, " "),
+      testId,
+      pageFixture,
+      navigateMethod,
+      testExamples,
+    });
+  }
 
   const specFileName = `${specId}-${fileNameBase}.spec.ts`;
   const specPath = path.join(featureTestDir, specFileName);
@@ -243,7 +339,7 @@ export async function addSpec(featureKey?: string): Promise<void> {
 export async function deleteSpec(featureKey?: string, suiteName?: string): Promise<void> {
   // Get all available features
   const availableFeatures = getAvailableFeatureKeys();
-  
+
   if (availableFeatures.length === 0) {
     throw new Error("No features found");
   }
@@ -274,7 +370,7 @@ export async function deleteSpec(featureKey?: string, suiteName?: string): Promi
 
   const feature = config[normalizedFeatureKey];
   const suiteIds = getSuiteIds(feature.suites);
-  
+
   if (suiteIds.length === 0) {
     throw new Error(`Feature "${normalizedFeatureKey}" has no suites to delete`);
   }
@@ -296,7 +392,7 @@ export async function deleteSpec(featureKey?: string, suiteName?: string): Promi
         const name = getSuiteName(feature.suites, id);
         return name && name.toLowerCase() === normalizedSuiteName.toLowerCase();
       });
-      
+
       if (!matchingId) {
         throw new Error(`Suite "${suiteName}" not found in feature "${normalizedFeatureKey}"`);
       }
@@ -323,7 +419,7 @@ export async function deleteSpec(featureKey?: string, suiteName?: string): Promi
   const featureTestDir = paths.testDir(normalizedFeatureKey);
   const glob = (await import("fast-glob")).default;
   const allSpecs = await glob("*.spec.ts", { cwd: featureTestDir }).catch(() => []);
-  
+
   // Find specs that match this suite (by suite name in the file or by suite ID in comments)
   const normalizedSuiteNameForFile = normalizeAndPrint(selectedSuiteName, "suite name");
   const matchingSpecs = allSpecs.filter((specFile) => {
@@ -351,12 +447,12 @@ export async function deleteSpec(featureKey?: string, suiteName?: string): Promi
       value: "__all__",
       name: "Delete all matching specs",
     });
-    
+
     const selected = await select({
       message: `Multiple specs found for suite "${selectedSuiteName}". Which to delete?`,
       choices: specOptions,
     });
-    
+
     if (selected === "__all__") {
       specsToDelete = matchingSpecs;
     } else {
@@ -368,7 +464,7 @@ export async function deleteSpec(featureKey?: string, suiteName?: string): Promi
   const confirmationText = specsToDelete.length === 1
     ? `delete ${selectedSuiteName}`
     : `delete ${specsToDelete.length} specs`;
-  
+
   const confirmation = await input({
     message: `Type "${confirmationText}" to confirm deletion:`,
   });
@@ -390,12 +486,12 @@ export async function deleteSpec(featureKey?: string, suiteName?: string): Promi
 
   // Remove suite from feature config
   delete feature.suites[selectedSuiteId.toString()];
-  
+
   // If this was the last suite, warn but don't delete the feature
   if (Object.keys(feature.suites).length === 0) {
     console.log(warning(`Warning: This was the last suite in feature "${normalizedFeatureKey}". The feature config entry remains but has no suites.`));
   }
-  
+
   await writeJsonSafe(paths.featureConfig(), config, true);
   console.log(`✓ Removed suite "${selectedSuiteName}" (ID ${selectedSuiteId}) from feature config`);
 }
