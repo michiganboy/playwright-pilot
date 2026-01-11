@@ -149,7 +149,7 @@ Start with a foundational feature like Authentication or Login. **You must have 
 
 ```bash
 # Create your first feature
-npm run pilot add:feature "Authentication"
+npm run pilot feature:add "Authentication"
 ```
 
 The CLI will prompt you for:
@@ -248,7 +248,7 @@ test.describe.serial("AUTH-101 - User Login @authentication", () => {
 If your tests need custom data models:
 
 ```bash
-npm run pilot add:factory "User"
+npm run pilot factory:add "User"
 ```
 
 Follow the prompts to define your model fields and faker methods.
@@ -281,19 +281,19 @@ Once your first feature is working:
 1. **Add more suites** to existing features:
 
    ```bash
-   npm run pilot add:suite --feature "authentication"
+   npm run pilot suite:add --feature "authentication"
    ```
 
 2. **Create additional features** as needed:
 
    ```bash
-   npm run pilot add:feature "User Management"
+   npm run pilot feature:add "User Management"
    ```
 
 3. **Create shared page objects**:
 
    ```bash
-   npm run pilot add:page "Dashboard" --feature "shared"
+   npm run pilot page:add "Dashboard" --feature "shared"
    ```
 
 4. **Run health checks** periodically:
@@ -343,7 +343,7 @@ The `pilot` CLI tool automates framework scaffolding and maintenance, ensuring c
 
 Understanding what each command means conceptually:
 
-**`add:feature`** - Bootstraps a new feature (ADO test plan)
+**`feature:add`** - Bootstraps a new feature (ADO test plan)
 
 - Collects Azure DevOps Plan ID and initial suites
 - Creates feature entry in `featureConfig.json`
@@ -352,25 +352,25 @@ Understanding what each command means conceptually:
 - Creates or reuses a page object for the feature
 - **Intended for:** Initial feature setup when starting a new test plan
 
-**`add:suite`** - Adds a new suite to an existing feature
+**`suite:add`** - Adds a new suite to an existing feature
 
 - Prompts for suite name and Azure DevOps Suite ID
 - Creates exactly one spec file
 - Auto-increments numbering per feature (101, 102, 103, etc.)
 - Adds suite entry to `featureConfig.json`
 - **Intended for:** Day-to-day work when adding new test suites
-- **Note:** `add:spec` is a legacy alias for `add:suite`
+- **Note:** `spec:add` is a legacy alias for `suite:add`
 
-**`delete:suite`** - Deletes a suite from a feature
+**`suite:delete`** - Deletes a suite from a feature
 
 - Removes the spec file
 - Removes the suite entry from `featureConfig.json`
 - Requires typed confirmation (suite name, case-sensitive)
 - Warns if it's the last suite in the feature
 - **Intended for:** Removing individual suites
-- **Note:** `delete:spec` is a legacy alias for `delete:suite`
+- **Note:** `spec:delete` is a legacy alias for `suite:delete`
 
-**`delete:feature`** - Sweeping and destructive by design
+**`feature:delete`** - Sweeping and destructive by design
 
 - Removes feature config entry
 - Removes all suites and spec files
@@ -379,14 +379,14 @@ Understanding what each command means conceptually:
 - **Intended for:** Rare cleanup operations
 - **Safety net:** Git version control
 
-**`add:page` / `delete:page`** - Global page object management
+**`page:add` / `page:delete`** - Global page object management
 
 - Pages are global fixtures (usable across all features)
 - Fixtures are centrally wired in `tests/fixtures/test-fixtures.ts`
 - Deletion is blocked if the page is referenced by any spec file
 - **Intended for:** Creating reusable page objects or cleaning up unused ones
 
-**`add:factory` / `delete:factory`** - Test data factory management
+**`factory:add` / `factory:delete`** - Test data factory management
 
 - Factories use faker for data generation
 - Factories integrate with dataStore for persistence
@@ -409,7 +409,7 @@ npm run pilot -- --help
 npm run pilot help
 
 # Show help for a specific command
-npm run pilot add:feature --help
+npm run pilot feature:add --help
 ```
 
 ### Creating Features
@@ -424,10 +424,10 @@ Features define ADO mapping, tags, and test folder scaffolding. **You must have 
 
 ```bash
 # Create a feature (will prompt for planId and suites)
-npm run pilot add:feature "User Management"
+npm run pilot feature:add "User Management"
 
 # Or provide plan ID via flag (still prompts for suites)
-npm run pilot add:feature "User Management" --plan-id 105
+npm run pilot feature:add "User Management" --plan-id 105
 ```
 
 **Feature Creation Flow:**
@@ -492,10 +492,10 @@ Pages can be created independently or as part of feature creation.
 
 ```bash
 # Create a page (uses page name as feature key for directory)
-npm run pilot add:page "UserProfile"
+npm run pilot page:add "UserProfile"
 
 # Create a page under a specific feature
-npm run pilot add:page "UserProfile" --feature "user-management"
+npm run pilot page:add "UserProfile" --feature "user-management"
 
 # The command will:
 # - Create src/pages/<featureKey>/<PageName>Page.ts
@@ -525,13 +525,13 @@ Add new suites to existing features. **You must have the suite created in ADO fi
 
 ```bash
 # Create a suite (will prompt for feature and suite info)
-npm run pilot add:suite
+npm run pilot suite:add
 
 # Or specify the feature
-npm run pilot add:suite --feature "user-management"
+npm run pilot suite:add --feature "user-management"
 ```
 
-**Note:** `add:spec` is a legacy alias for `add:suite`. Both commands do the same thing.
+**Note:** `spec:add` is a legacy alias for `suite:add`. Both commands do the same thing.
 
 **Suite Creation Flow:**
 
@@ -583,7 +583,7 @@ Data factories follow the existing pattern with faker and save methods.
 
 ```bash
 # Create a factory
-npm run pilot add:factory "Product"
+npm run pilot factory:add "Product"
 
 # The command will:
 # - Check if model exists (prompts to reuse or create new)
@@ -701,7 +701,7 @@ All delete operations require typed confirmation and check for references.
 
 ```bash
 # Delete a feature (removes test folder, config entry, and associated pages if not referenced elsewhere)
-npm run pilot delete:feature "user-management"
+npm run pilot feature:delete "user-management"
 
 # You must type exactly: "delete user-management"
 ```
@@ -715,19 +715,19 @@ npm run pilot delete:feature "user-management"
 - Removes fixture wiring for deleted pages from `test-fixtures.ts`
 - Deletes empty page directories
 
-**Note:** Pages are global fixtures (usable across features) due to the fixture architecture. However, `delete:feature` performs a sweeping cleanup that removes pages "owned" by the feature if they are not referenced by other features. This ensures clean removal of feature-specific pages while preserving shared pages.
+**Note:** Pages are global fixtures (usable across features) due to the fixture architecture. However, `feature:delete` performs a sweeping cleanup that removes pages "owned" by the feature if they are not referenced by other features. This ensures clean removal of feature-specific pages while preserving shared pages.
 
 #### Delete Suite
 
 ```bash
 # Delete a suite (dropdowns for feature and suite selection)
-npm run pilot delete:suite
+npm run pilot suite:delete
 
 # Or specify feature and suite
-npm run pilot delete:suite --feature "user-management" --suite "User Login"
+npm run pilot suite:delete --feature "user-management" --suite "User Login"
 ```
 
-**Note:** `delete:spec` is a legacy alias for `delete:suite`. Both commands do the same thing.
+**Note:** `spec:delete` is a legacy alias for `suite:delete`. Both commands do the same thing.
 
 **What Gets Deleted:**
 
@@ -743,10 +743,10 @@ npm run pilot delete:suite --feature "user-management" --suite "User Login"
 
 ```bash
 # Delete a page (dropdown selection available)
-npm run pilot delete:page
+npm run pilot page:delete
 
 # Or specify the page name
-npm run pilot delete:page "UserProfile"
+npm run pilot page:delete "UserProfile"
 ```
 
 **Safety Checks:**
@@ -760,7 +760,7 @@ npm run pilot delete:page "UserProfile"
 
 ```bash
 # Delete a factory (removes file and export)
-npm run pilot delete:factory "Product"
+npm run pilot factory:delete "Product"
 
 # You must type exactly: "delete factory product"
 ```
@@ -850,16 +850,16 @@ The CLI follows conservative behavior:
 
 | Command                 | Description                                                | Arguments                               | Options                                                          |
 | ----------------------- | ---------------------------------------------------------- | --------------------------------------- | ---------------------------------------------------------------- |
-| `add:feature <name>`    | Create feature with config, test folder, and initial specs | `<name>` - Feature name                 | `--plan-id <id>` - ADO Plan ID                                   |
-| `delete:feature [name]` | Delete feature (test folder and config)                    | `[name]` - Optional, prompts if omitted | -                                                                |
-| `add:page [name]`       | Create page object and wire fixtures                       | `[name]` - Optional, prompts if omitted | `--feature <key>` - Feature key for directory                    |
-| `delete:page [name]`    | Delete page and unwire fixtures                            | `[name]` - Optional, prompts if omitted | -                                                                |
-| `add:suite`             | Create suite under existing feature                        | -                                       | `--feature <key>` - Feature key (prompts if omitted)             |
-| `delete:suite`          | Delete suite and remove from feature config                | -                                       | `--feature <key>` - Feature key<br>`--suite <name>` - Suite name |
-| `add:spec`              | Legacy alias for `add:suite`                               | -                                       | `--feature <key>` - Feature key (prompts if omitted)             |
-| `delete:spec`           | Legacy alias for `delete:suite`                            | -                                       | `--feature <key>` - Feature key<br>`--suite <name>` - Suite name |
-| `add:factory [name]`    | Create data factory and add export                         | `[name]` - Optional, prompts if omitted | -                                                                |
-| `delete:factory [name]` | Delete factory and remove export                           | `[name]` - Optional, prompts if omitted | -                                                                |
+| `feature:add <name>`    | Create feature with config, test folder, and initial specs | `<name>` - Feature name                 | `--plan-id <id>` - ADO Plan ID                                   |
+| `feature:delete [name]` | Delete feature (test folder and config)                    | `[name]` - Optional, prompts if omitted | -                                                                |
+| `page:add [name]`       | Create page object and wire fixtures                       | `[name]` - Optional, prompts if omitted | `--feature <key>` - Feature key for directory                    |
+| `page:delete [name]`    | Delete page and unwire fixtures                            | `[name]` - Optional, prompts if omitted | -                                                                |
+| `suite:add`             | Create suite under existing feature                        | -                                       | `--feature <key>` - Feature key (prompts if omitted)             |
+| `suite:delete`          | Delete suite and remove from feature config                | -                                       | `--feature <key>` - Feature key<br>`--suite <name>` - Suite name |
+| `spec:add`              | Legacy alias for `suite:add`                               | -                                       | `--feature <key>` - Feature key (prompts if omitted)             |
+| `spec:delete`           | Legacy alias for `suite:delete`                            | -                                       | `--feature <key>` - Feature key<br>`--suite <name>` - Suite name |
+| `factory:add [name]`    | Create data factory and add export                         | `[name]` - Optional, prompts if omitted | -                                                                |
+| `factory:delete [name]` | Delete factory and remove export                           | `[name]` - Optional, prompts if omitted | -                                                                |
 | `attendant`             | Run health checks (read-only)                              | -                                       | -                                                                |
 | `help`                  | Show help information                                      | -                                       | -                                                                |
 
@@ -1162,10 +1162,10 @@ The Pilot CLI automates the creation of features, pages, specs, and factories, e
 
 ```bash
 # Create a feature (will prompt for ADO information)
-npm run pilot add:feature "User Management"
+npm run pilot feature:add "User Management"
 
 # Or provide ADO info via flags
-npm run pilot add:feature "User Management" --plan-id 105
+npm run pilot feature:add "User Management" --plan-id 105
 ```
 
 **During feature creation, you'll be prompted for:**
@@ -1198,24 +1198,24 @@ If you need to add more suites to an existing feature:
 
 ```bash
 # Add a new suite (will prompt for suite name and ID)
-npm run pilot add:suite --feature "user-management"
+npm run pilot suite:add --feature "user-management"
 ```
 
 **Creating Page Objects:**
 
 ```bash
 # Create a page object
-npm run pilot add:page "UserProfile"
+npm run pilot page:add "UserProfile"
 
 # Or create under a specific feature
-npm run pilot add:page "UserProfile" --feature "user-management"
+npm run pilot page:add "UserProfile" --feature "user-management"
 ```
 
 **Creating Data Factories:**
 
 ```bash
 # Create a test data factory
-npm run pilot add:factory "Product"
+npm run pilot factory:add "Product"
 ```
 
 #### 4. Configure ADO Information in Your Tests

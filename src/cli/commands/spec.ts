@@ -38,7 +38,7 @@ export async function addSpec(featureKey?: string): Promise<void> {
   const availableFeatures = getAvailableFeatureKeys();
 
   if (availableFeatures.length === 0) {
-    throw new Error("No features found. Create a feature first using 'pilot add:feature'.");
+    throw new Error("No features found. Create a feature first using 'pilot feature:add'.");
   }
 
   // Select feature if not provided or show dropdown
@@ -165,7 +165,7 @@ export async function addSpec(featureKey?: string): Promise<void> {
       // Feature is now created with the spec file, we're done
       return;
     } else {
-      throw new Error("Feature creation cancelled. Please create the feature first using 'pilot add:feature'.");
+      throw new Error("Feature creation cancelled. Please create the feature first using 'pilot feature:add'.");
     }
   }
 

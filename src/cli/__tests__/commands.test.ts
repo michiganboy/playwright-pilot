@@ -100,11 +100,11 @@ export const test = base.extend<Fixtures>({});`;
     // Cleanup test directory
     await fs.rm(testDir, { recursive: true, force: true }).catch(() => { });
 
-    // Clear all mocks but preserve glob mock (it's reset in beforeEach for delete:page tests)
+    // Clear all mocks but preserve glob mock (it's reset in beforeEach for page:delete tests)
     jest.clearAllMocks();
   });
 
-  describe("add:page", () => {
+  describe("page:add", () => {
     it("should work with page name as argument", async () => {
       // Args
       const pageName = "My Page";
@@ -252,7 +252,7 @@ export const test = base.extend<Fixtures>({});`;
     });
   });
 
-  describe("delete:page", () => {
+  describe("page:delete", () => {
     it("should work with page name as argument", async () => {
       // Args - "MyPage" normalizes to "mypage" via normalizeToKey
       // The file "MyPagePage.ts" -> PageName "MyPage" -> normalizes to "mypage"
@@ -510,7 +510,7 @@ export const test = base.extend<Fixtures>({
     });
   });
 
-  describe("add:feature", () => {
+  describe("feature:add", () => {
     it("should work with feature name as argument", async () => {
       // Args
       const featureName = "Test Feature";
@@ -885,7 +885,7 @@ export const test = base.extend<Fixtures>({
     });
   });
 
-  describe("delete:feature", () => {
+  describe("feature:delete", () => {
     it("should work with feature name as argument", async () => {
       // Args
       const featureName = "test-feature";
@@ -1147,7 +1147,7 @@ export const test = base.extend<Fixtures>({
     });
   });
 
-  describe("add:factory", () => {
+  describe("factory:add", () => {
     it("should work with model name as argument", async () => {
       // Args
       const modelName = "Product";
@@ -1423,7 +1423,7 @@ export const test = base.extend<Fixtures>({
     });
   });
 
-  describe("delete:factory", () => {
+  describe("factory:delete", () => {
     it("should work with factory name as argument", async () => {
       // Args
       const factoryName = "User";
@@ -1619,7 +1619,7 @@ export const test = base.extend<Fixtures>({
     });
   });
 
-  describe("add:spec", () => {
+  describe("spec:add", () => {
     it("should work with --feature flag", async () => {
       // Args
       const featureKey = "test-feature";
@@ -2025,7 +2025,7 @@ export const test = base.extend<Fixtures>({
     });
   });
 
-  describe("delete:spec", () => {
+  describe("spec:delete", () => {
     it("should work with --feature and --suite flags", async () => {
       // Args
       const featureKey = "test-feature";
