@@ -117,8 +117,8 @@ class CustomListReporter implements Reporter {
 
       if (errorMessage) {
         const wrappedMessage = wrap(errorMessage, {
-          width: 60,
-          cut: true,
+          width: process.stdout.columns ? Math.min(process.stdout.columns - 20, 120) : 120,
+          cut: false,
           trim: true,
         });
         const errorBox = boxen(wrappedMessage, {
@@ -138,7 +138,7 @@ class CustomListReporter implements Reporter {
           margin: { left: 6 },
           title: "Error",
           titleAlignment: "left",
-          width: 70,
+          width: process.stdout.columns ? Math.min(process.stdout.columns - 10, 130) : 130,
         });
         console.log(`\n${errorBox}\n`);
       }
@@ -215,16 +215,8 @@ class CustomListReporter implements Reporter {
       return `Received: ${receivedMatch[1].trim()}`;
     }
 
-    const firstLine = message.split("\n")[0].trim();
-    if (firstLine.length > 0 && firstLine.length < 100) {
-      return firstLine;
-    }
-
-    if (firstLine.length >= 100) {
-      return firstLine.substring(0, 97) + "...";
-    }
-
-    return "Test failed";
+    // Return the full message instead of truncating
+    return message.trim() || "Test failed";
   }
 
   async onExit() {

@@ -216,7 +216,7 @@ export async function addSpec(featureKey?: string): Promise<void> {
 
   if (isLoginPage) {
     // Login page: completely custom template with two test cases
-    specContent = `import { test } from "../fixtures/test-fixtures";
+    specContent = `import { test, expect } from "../fixtures/test-fixtures";
 import * as factories from "../../src/testdata/factories";
 import { load } from "../../src/utils/dataStore";
 
@@ -229,7 +229,7 @@ import { load } from "../../src/utils/dataStore";
 // ---
 
 test.describe.serial("${specId} - ${suiteNameForFile.replace(/-/g, " ")} ${feature.tag}", () => {
-  test("[${testId}] Login with valid credentials", async ({ autoPilot }) => {
+  test("[${testId}] Login with valid credentials", async ({ page, autoPilot }) => {
     await test.step("Login to application", async () => {
       await autoPilot.login();
     });

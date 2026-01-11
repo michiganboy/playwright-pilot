@@ -36,8 +36,9 @@ export class AutoPilot {
     }
 
     await this.loginPilot.goto();
+    const loginUrl = this.page.url();
     await this.loginPilot.submit(loginUsername, loginPassword);
-    await this.waitForAppReady();
+    await this.waitForAppReady(loginUrl);
   }
 
   // Logs out of the application and waits for redirect to the login page.
@@ -52,7 +53,27 @@ export class AutoPilot {
   }
 
   // Waits for the application to be ready by checking for the app-ready indicator.
-  async waitForAppReady() {
-    await this.page.locator(this.locators.appReadyIndicator).waitFor({ timeout: 10000 });
+  // Falls back to waiting for URL change if the indicator doesn't exist.
+  async waitForAppReady(initialUrl?: string) {
+    try {
+      await this.page.locator(this.locators.appReadyIndicator).waitFor({ timeout: 2000 });
+    } catch (error) {
+      // If app-ready indicator doesn't exist, wait for URL to change from initial URL
+      // This indicates the login was successful and the app redirected
+      if (initialUrl) {
+        try {
+          await this.page.waitForURL((url) => url.href !== initialUrl, { timeout: 8000 });
+        } catch (urlError) {
+          throw new Error(`Timeout waiting for appReadyIndicator locator: ${this.locators.appReadyIndicator}, and failed to detect URL change from ${initialUrl}. ${error instanceof Error ? error.message : String(error)}`);
+        }
+      } else {
+        // Fallback: wait for URL to not include /login (for backward compatibility)
+        try {
+          await this.page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 8000 });
+        } catch (urlError) {
+          throw new Error(`Timeout waiting for appReadyIndicator locator: ${this.locators.appReadyIndicator}, and failed to detect URL change from login page. ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    }
   }
 }

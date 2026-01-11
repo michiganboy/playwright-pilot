@@ -98,6 +98,12 @@ export async function addPage(pageName: string | undefined, featureKey?: string)
       goto: async () => {
         await this.navigateToLogin();
       },
+      // Below is an example of what you would replace the stub with.
+      // Replace the stub implementation below with the commented code.
+      // submit: async (username: string, password: string) => {
+      //   await this.enterLoginCredentials(username, password);
+      //   await this.clickLoginButton();
+      // },
       submit: async (username: string, password: string) => {
         throw new Error(
           "Login submission is not configured. Implement submit() in LoginPage.toLoginPilot() using your app's locators."
