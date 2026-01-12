@@ -214,7 +214,15 @@ This adapter enables `autoPilot.login()` to work across your entire test suite. 
 
 ### Step 6: Verify Fixtures Wiring
 
-The CLI automatically wires `LoginPage` into fixtures. Check `tests/fixtures/test-fixtures.ts`:
+The CLI automatically wires `LoginPage` into fixtures. This keeps tests clean by passing page objects through fixtures instead of requiring manual instantiation in each test.
+
+**Benefits of the fixture pattern:**
+
+- **Clean tests** - Tests receive page objects via fixtures (e.g., `{ loginPage }`) instead of manually instantiating them with `new LoginPage(page)`
+- **Consistent setup** - All page objects are created and wired once in the fixtures file
+- **Type safety** - TypeScript ensures fixtures are properly typed and available
+
+Check `tests/fixtures/test-fixtures.ts`:
 
 ```typescript
 import { test as base, expect } from "@playwright/test";

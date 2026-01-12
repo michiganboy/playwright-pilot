@@ -12,6 +12,7 @@ AutoPilot provides **cross-application actions** that work consistently across a
 - `autoPilot.waitForAppReady()` - Waits for application to be ready
 
 Tests can call `await autoPilot.login()` without knowing:
+
 - What the login page URL is
 - What the email/password field selectors are
 - What the submit button selector is
@@ -49,6 +50,14 @@ LoginPage.navigateToLogin() + LoginPage.enterLoginCredentials() + LoginPage.clic
 5. **LoginPage methods execute** - Actual page interactions
 
 ### Fixtures Wiring
+
+The fixtures wire everything together, keeping tests clean by passing page objects and helpers through a single fixture system instead of requiring manual instantiation in each test.
+
+**Why fixtures keep tests clean:**
+
+- Tests receive page objects via fixtures (e.g., `{ loginPage, autoPilot }`) instead of manually instantiating them with `new LoginPage(page)` or `new AutoPilot(page, loginPilot)`
+- All wiring happens once in the fixtures file, not repeated in every test
+- Tests focus on test logic, not object creation
 
 The fixtures wire everything together:
 
@@ -282,6 +291,7 @@ await autoPilot.login("user@example.com", "password123");
 ```
 
 **Behavior:**
+
 1. Calls `loginPilot.goto()` to navigate to login page
 2. Calls `loginPilot.submit(username, password)` to perform login
 3. Waits for app to be ready (checks for `[data-testid="app-ready"]` or URL change)
@@ -295,6 +305,7 @@ await autoPilot.logout();
 ```
 
 **Behavior:**
+
 1. Clicks logout button (`[data-testid="logout"]`)
 2. Waits for redirect to login page
 
@@ -315,6 +326,7 @@ await autoPilot.waitForAppReady();
 ```
 
 **Behavior:**
+
 1. Checks for `[data-testid="app-ready"]` indicator
 2. Falls back to waiting for URL change if indicator doesn't exist
 
@@ -359,6 +371,7 @@ loginPilot: async ({ loginPage }, use) => {
 **Error:** `Login credentials are required. Set LOGIN_EMAIL and LOGIN_PASSWORD in .env file or pass as parameters.`
 
 **Solution:** Either:
+
 1. Set `LOGIN_EMAIL` and `LOGIN_PASSWORD` in `.env`
 2. Pass credentials to `autoPilot.login(email, password)`
 
