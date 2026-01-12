@@ -2,7 +2,9 @@
 import { readFile } from "fs/promises";
 import { hostname } from "os";
 import { resolve } from "path";
+import { existsSync } from "fs";
 import { FEATURE_CONFIG, FeatureConfig, getAvailableFeatureKeys, getSuiteIds, hasSuiteId } from "../../utils/featureConfig";
+import { uploadTestArtifacts } from "./attachments";
 
 interface RunPlan {
   featureKey: string;
@@ -32,6 +34,7 @@ interface PlaywrightTestResult {
   stdout?: string[];
   stderr?: string[];
   attachments?: any[];
+  playwrightTestId?: string; // Playwright test ID for mapping to test-results artifacts
 }
 
 interface PlaywrightJsonSuite {
@@ -370,6 +373,7 @@ function flattenPlaywrightJson(json: any): PlaywrightTestResult[] {
                 stdout: result.stdout,
                 stderr: result.stderr,
                 attachments: result.attachments,
+                playwrightTestId: (test as any).id, // Extract Playwright test ID for artifact mapping
               });
             }
           }
@@ -795,7 +799,8 @@ async function postTestResults(
   planId: number,
   suiteId: number,
   quiet: boolean = false
-): Promise<void> {
+): Promise<Map<string, number>> {
+  // Returns a map of caseId -> testCaseResultId for attachment uploads
   const log = quiet ? () => { } : (...args: any[]) => console.log(...args);
   const warn = quiet ? () => { } : (...args: any[]) => console.warn(...args);
   const existingResults = await getExistingTestResults(orgUrl, project, token, runId);
@@ -913,6 +918,8 @@ async function postTestResults(
   // Separate results that have existing IDs (need updates) from new results (need creation)
   const resultsToUpdate = results.filter((r) => r.id !== undefined);
 
+  const resultIdMap = new Map<string, number>(); // caseId -> testCaseResultId
+
   if (resultsToUpdate.length === 0) {
     warn(`No existing test results found to update. Expected ${results.length} results.`);
     warn("This may indicate that ADO didn't create placeholder results, or testPointIds don't match.");
@@ -930,7 +937,22 @@ async function postTestResults(
       const errorText = await response.text();
       throw new Error(`Failed to post test results: ${response.status} ${errorText}`);
     }
-    return;
+
+    // Fetch the created results to get their IDs
+    const createdResults = await getExistingTestResults(orgUrl, project, token, runId);
+    for (const test of tests) {
+      const caseId = extractCaseId(test.testTitle);
+      if (caseId) {
+        const testPoint = testPoints.get(caseId);
+        if (testPoint) {
+          const resultId = createdResults.get(testPoint.id);
+          if (resultId) {
+            resultIdMap.set(caseId, resultId);
+          }
+        }
+      }
+    }
+    return resultIdMap;
   }
 
   // Use PATCH to update existing results
@@ -949,6 +971,232 @@ async function postTestResults(
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Failed to update test results: ${response.status} ${errorText}`);
+  }
+
+  // Build result ID map from existing results
+  for (const test of tests) {
+    const caseId = extractCaseId(test.testTitle);
+    if (caseId) {
+      const testPoint = testPoints.get(caseId);
+      if (testPoint) {
+        const resultId = existingResults.get(testPoint.id);
+        if (resultId) {
+          resultIdMap.set(caseId, resultId);
+        }
+      }
+    }
+  }
+
+  return resultIdMap;
+}
+
+/**
+ * Maps Playwright test IDs to Azure DevOps test result IDs and uploads artifacts.
+ */
+async function uploadAttachmentsForTests(
+  orgUrl: string,
+  project: string,
+  token: string,
+  runId: number,
+  tests: PlaywrightTestResult[],
+  resultIdMap: Map<string, number>,
+  testPointMap: Map<string, TestPoint>,
+  quiet: boolean = false
+): Promise<void> {
+  const log = quiet ? () => { } : (...args: any[]) => console.log(...args);
+  // Always show warnings for attachment issues, even in quiet mode
+  const warn = (...args: any[]) => console.warn(...args);
+
+  // Read .last-run.json to get failed test IDs
+  const lastRunPath = resolve(process.cwd(), "test-results", ".last-run.json");
+  let failedTestIds: string[] = [];
+  if (existsSync(lastRunPath)) {
+    try {
+      const lastRunContent = await readFile(lastRunPath, "utf-8");
+      const lastRun = JSON.parse(lastRunContent);
+      failedTestIds = lastRun.failedTests || [];
+    } catch (err) {
+      warn(`Failed to read .last-run.json: ${err}`);
+    }
+  }
+
+  const testResultsDir = resolve(process.cwd(), "test-results");
+
+  // Upload artifacts for each failed test
+  for (const test of tests) {
+    const caseId = extractCaseId(test.testTitle);
+    if (!caseId) {
+      continue;
+    }
+
+    const testCaseResultId = resultIdMap.get(caseId);
+    if (!testCaseResultId) {
+      warn(`No test result ID found for case ${caseId}, skipping attachments`);
+      continue;
+    }
+
+    // Find test result directory using Playwright test ID
+    let testResultDir: string | null = null;
+    if (test.playwrightTestId) {
+      // Playwright creates directories like: test-results/{test-id}
+      // We need to find the directory that matches the test ID
+      const possibleDir = resolve(testResultsDir, test.playwrightTestId);
+      if (existsSync(possibleDir)) {
+        testResultDir = possibleDir;
+      } else {
+        // Try to find directory by searching for test ID in directory names
+        // Playwright may create directories with test ID as part of the name
+        try {
+          const { readdir } = await import("fs/promises");
+          const entries = await readdir(testResultsDir, { withFileTypes: true });
+          for (const entry of entries) {
+            if (entry.isDirectory() && entry.name.includes(test.playwrightTestId)) {
+              testResultDir = resolve(testResultsDir, entry.name);
+              break;
+            }
+          }
+        } catch (err) {
+          warn(`Failed to search for test result directory: ${err}`);
+        }
+      }
+    }
+
+    if (!testResultDir) {
+      // Fallback: try to find directory by searching all directories and matching by test title
+      // Playwright creates directories based on test file and title (sanitized and potentially truncated)
+      try {
+        const { readdir } = await import("fs/promises");
+        const entries = await readdir(testResultsDir, { withFileTypes: true });
+
+        // Extract searchable parts from the test title (remove case ID prefix)
+        const cleanTitle = stripCaseIdPrefix(test.testTitle)
+          .replace(/[^a-zA-Z0-9]/g, "-")
+          .toLowerCase();
+
+        // Get key words from title (first few words, as Playwright may truncate)
+        const titleWords = cleanTitle.split("-").filter(w => w.length > 2).slice(0, 3);
+
+        // Also try matching by file path
+        // Remove tests/ prefix and .spec.ts suffix, then sanitize
+        let filePart = "";
+        if (test.file) {
+          filePart = test.file
+            .replace(/^tests\//, "") // Remove tests/ prefix
+            .replace(/\.spec\.ts$/, "") // Remove .spec.ts suffix
+            .replace(/[^a-zA-Z0-9]/g, "-") // Replace non-alphanumeric with dashes
+            .toLowerCase();
+        }
+
+        log(`Searching for test result directory. File: ${test.file}, FilePart: ${filePart}, Title: ${test.testTitle}`);
+
+        // Try to find directory that contains both file part and title words
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            const dirName = entry.name.toLowerCase();
+
+            // Check if directory contains file path part (match on first significant segment)
+            // Extract just the first directory name from file path (e.g., "login-page" from "login-page/logi-101-user-login-flow")
+            const filePathSegments = filePart.split("-");
+            const firstSegment = filePathSegments[0]; // "login"
+            const firstTwoSegments = filePathSegments.slice(0, 2).join("-"); // "login-page"
+            const firstThreeSegments = filePathSegments.slice(0, 3).join("-"); // "login-page-logi"
+
+            // Match if directory contains filePart, or starts with significant prefix of filePart
+            const hasFilePart = filePart && (
+              dirName.includes(filePart) ||
+              dirName.startsWith(firstThreeSegments) ||
+              dirName.startsWith(firstTwoSegments) ||
+              (firstSegment && dirName.startsWith(firstSegment + "-"))
+            );
+
+            // Check if directory contains title words (at least 2 out of 3)
+            const matchingWords = titleWords.filter(word => dirName.includes(word)).length;
+            const hasTitleMatch = matchingWords >= Math.min(2, titleWords.length);
+
+            // Also check if directory contains any significant part of the title
+            const titleSubstring = cleanTitle.substring(0, 30);
+            const hasTitleSubstring = dirName.includes(titleSubstring);
+
+            // Check if directory has test artifacts (trace.zip or error-context.md)
+            const possibleDir = resolve(testResultsDir, entry.name);
+            const hasArtifacts = existsSync(resolve(possibleDir, "trace.zip")) ||
+              existsSync(resolve(possibleDir, "error-context.md"));
+
+            // Match if: (file part + title match) OR (file part + has artifacts for failed tests)
+            if (hasFilePart && (hasTitleMatch || hasTitleSubstring || (test.status === "failed" && hasArtifacts))) {
+              testResultDir = possibleDir;
+              log(`Found test result directory: ${entry.name} for test "${test.testTitle}"`);
+              break;
+            }
+
+            // Debug logging
+            if (entry.isDirectory()) {
+              log(`  Checking directory: ${entry.name}, hasFilePart: ${hasFilePart}, hasTitleMatch: ${hasTitleMatch}, hasTitleSubstring: ${hasTitleSubstring}, hasArtifacts: ${hasArtifacts}`);
+            }
+          }
+        }
+
+        // If still not found, try a more lenient match - just file part
+        if (!testResultDir && filePart) {
+          for (const entry of entries) {
+            if (entry.isDirectory() && entry.name.toLowerCase().includes(filePart)) {
+              // Check if this directory has trace.zip or error-context.md (indicates it's a test result dir)
+              const possibleDir = resolve(testResultsDir, entry.name);
+              if (existsSync(resolve(possibleDir, "trace.zip")) || existsSync(resolve(possibleDir, "error-context.md"))) {
+                testResultDir = possibleDir;
+                log(`Found test result directory by file match: ${entry.name} for test "${test.testTitle}"`);
+                break;
+              }
+            }
+          }
+        }
+
+        // Last resort: for failed tests, find any directory with artifacts that matches the file path
+        if (!testResultDir && test.status === "failed" && filePart) {
+          try {
+            const { readdir } = await import("fs/promises");
+            const entries = await readdir(testResultsDir, { withFileTypes: true });
+            for (const entry of entries) {
+              if (entry.isDirectory() && entry.name.toLowerCase().includes(filePart)) {
+                const possibleDir = resolve(testResultsDir, entry.name);
+                // Check if this directory has test artifacts
+                if (existsSync(resolve(possibleDir, "trace.zip")) ||
+                  existsSync(resolve(possibleDir, "error-context.md"))) {
+                  testResultDir = possibleDir;
+                  log(`Found test result directory by artifact presence: ${entry.name} for test "${test.testTitle}"`);
+                  break;
+                }
+              }
+            }
+          } catch (err) {
+            warn(`Failed in last resort directory search: ${err}`);
+          }
+        }
+      } catch (err) {
+        warn(`Failed to search for test result directory: ${err}`);
+      }
+    }
+
+    if (testResultDir) {
+      try {
+        await uploadTestArtifacts(
+          orgUrl,
+          project,
+          token,
+          runId,
+          testCaseResultId,
+          testResultDir,
+          testResultsDir,
+          quiet
+        );
+        log(`Uploaded artifacts for test case ${caseId} (result ID: ${testCaseResultId})`);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        warn(`Failed to upload artifacts for test case ${caseId}: ${errorMessage}`);
+      }
+    } else {
+      warn(`Could not find test result directory for test case ${caseId}`);
+    }
   }
 }
 
@@ -1055,8 +1303,34 @@ export async function syncAzureDevOpsFromPlaywright(quiet: boolean = false): Pro
     const runId = await createTestRun(orgUrl, project, token, plan, suiteName, matchingTestPointIds, quiet);
     log(`Created test run ${runId} for plan ${plan.planId}, suite ${plan.suiteId}`);
 
-    await postTestResults(orgUrl, project, token, runId, filteredTests, testPointMap, testCaseSteps, plan.planId, plan.suiteId, quiet);
+    const resultIdMap = await postTestResults(orgUrl, project, token, runId, filteredTests, testPointMap, testCaseSteps, plan.planId, plan.suiteId, quiet);
     log(`Posted ${filteredTests.length} test results to run ${runId}`);
+
+    // Upload attachments for failed tests if enabled
+    if (process.env.ADO_ATTACH_ARTIFACTS !== "false") {
+      const attachOnFailureOnly = process.env.ADO_ATTACH_ON_FAILURE_ONLY !== "false";
+      const failedTests = attachOnFailureOnly
+        ? filteredTests.filter((t) => t.status === "failed")
+        : filteredTests;
+
+      if (failedTests.length > 0) {
+        log(`Attempting to upload artifacts for ${failedTests.length} test(s)`);
+        await uploadAttachmentsForTests(
+          orgUrl,
+          project,
+          token,
+          runId,
+          failedTests,
+          resultIdMap,
+          testPointMap,
+          quiet
+        );
+      } else {
+        log("No failed tests found for artifact upload");
+      }
+    } else {
+      log("Artifact attachment is disabled (ADO_ATTACH_ARTIFACTS=false)");
+    }
 
     await completeTestRun(orgUrl, project, token, runId);
     log(`Completed test run ${runId}`);

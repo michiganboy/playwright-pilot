@@ -12,12 +12,16 @@ const reporters: any[] = [
 
 export default defineConfig({
   testDir: "./tests",
+  outputDir: "./test-results",
+  preserveOutput: "always",
   use: {
     baseURL: process.env.BASE_URL || "http://localhost:3000",
     headless: true,
     viewport: { width: 1280, height: 720 },
     actionTimeout: 10000,
     navigationTimeout: 30000,
+    // Enable trace recording (retained only on failure)
+    trace: "retain-on-failure",
   },
   reporter: reporters,
   globalTeardown: "./global-teardown.ts",
