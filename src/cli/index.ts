@@ -6,7 +6,7 @@ import { addFeature, deleteFeature } from "./commands/feature";
 import { addSpec, deleteSpec } from "./commands/spec";
 import { addFactory, deleteFactory } from "./commands/factory";
 import { runAttendant } from "./commands/attendant";
-import { openReport } from "./commands/report";
+import { openReport } from "./commands/trace";
 
 // ANSI color codes
 const RESET = "\x1b[0m";

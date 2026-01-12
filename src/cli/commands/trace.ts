@@ -1,4 +1,4 @@
-// Report command for opening Playwright HTML report.
+// Trace command for opening Playwright HTML report.
 import { execSync } from "child_process";
 
 /**
