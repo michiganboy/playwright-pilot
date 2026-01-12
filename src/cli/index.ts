@@ -6,6 +6,7 @@ import { addFeature, deleteFeature } from "./commands/feature";
 import { addSpec, deleteSpec } from "./commands/spec";
 import { addFactory, deleteFactory } from "./commands/factory";
 import { runAttendant } from "./commands/attendant";
+import { openReport } from "./commands/trace";
 
 // ANSI color codes
 const RESET = "\x1b[0m";
@@ -164,6 +165,18 @@ program
   .action(async () => {
     try {
       await runAttendant();
+    } catch (err) {
+      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command("trace:open")
+  .description("Open the Playwright HTML report in the browser")
+  .action(async () => {
+    try {
+      await openReport();
     } catch (err) {
       console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exit(1);
