@@ -18,7 +18,7 @@ Playwright Pilot is designed for:
 - **Page Objects + Fixtures** - Automatic wiring of page objects into Playwright fixtures
 - **AutoPilot Workflows** - Cross-application actions like `autoPilot.login()` that work across features
 - **ADO Test Plan Mapping** - Features map to test plans, suites to test suites, tests to test cases (see [README.ado.md](./README.ado.md))
-- **Test Data System** - Models, factories, and dataStore for type-safe test data management (see [README.testdata.md](./README.testdata.md))
+- **Test Data System** - Models, builders (mimicry-js), factories, and split dataStore (system._ → canonical, test._ → runtime) (see [README.testdata.md](./README.testdata.md), [README.tools.md](./README.tools.md), and [README.builders.md](./README.builders.md))
 - **Trace Capture + ADO Attachments** - Automatic trace recording and configurable artifact uploads to Azure DevOps (see [README.artifacts.md](./README.artifacts.md))
 - **trace:open Command** - Quick access to Playwright HTML reports via `npm run pilot trace:open`
 
@@ -34,7 +34,10 @@ playwright-pilot/
 │   ├── testdata/
 │   │   ├── factories/         # Test data factories
 │   │   ├── models/             # TypeScript models
-│   │   ├── dataStore.json      # Cross-test data persistence
+│   │   ├── builders/           # Builders (mimicry-js) for factories
+│   │   ├── dataStore.json      # Canonical system.* data (committed)
+│   │   ├── runState.json       # Runtime test.* data (gitignored)
+│   │   ├── system.ts           # System key registry
 │   │   └── featureConfig.json  # Feature configuration for ADO
 │   └── utils/
 │       ├── autoPilot.ts        # Cross-app workflows (login, logout, etc.)
@@ -168,13 +171,11 @@ export class LoginPage {
       goto: async () => {
         await this.navigateToLogin();
       },
-      // Below is an example of what you would replace the stub with.
-      // Replace the stub implementation below with the commented code.
-      // submit: async (username: string, password: string) => {
-      //   await this.enterLoginCredentials(username, password);
-      //   await this.clickLoginButton();
-      // },
       submit: async (username: string, password: string) => {
+        // TODO: Replace the error below with your login implementation.
+        // Example:
+        //   await this.enterLoginCredentials(username, password);
+        //   await this.clickLoginButton();
         throw new Error("Login submission is not configured. Implement submit() in LoginPage.toLoginPilot() using your app's locators.");
       },
     };
@@ -184,7 +185,7 @@ export class LoginPage {
 
 ### Step 5: Implement toLoginPilot() Adapter
 
-The CLI generates a stubbed `toLoginPilot()` method for Login pages (shown in Step 4 above). Replace the stub `submit()` method with your actual implementation:
+The CLI generates a stubbed `toLoginPilot()` method for Login pages (shown in Step 4 above). Replace the `throw new Error()` in the `submit()` method with your actual implementation:
 
 ```typescript
 // In LoginPage.ts - replace the stubbed submit() method
@@ -287,7 +288,6 @@ Open the generated spec file (e.g., `tests/login-page/LOGI-101-user-login.spec.t
 ```typescript
 import { test, expect } from "../fixtures/test-fixtures";
 import * as factories from "../../src/testdata/factories";
-import { load } from "../../src/utils/dataStore";
 
 // ---
 // Tests for User Login
@@ -298,7 +298,7 @@ import { load } from "../../src/utils/dataStore";
 // ---
 
 test.describe.serial("LOGI-101 - User Login @login-page", () => {
-  test("[LOGI-10001] Login with valid credentials", async ({ page, autoPilot }) => {
+  test("[LOGI-10001] Login with valid credentials", async ({ page, autoPilot, set, get }) => {
     await test.step("Login to application", async () => {
       await autoPilot.login();
     });

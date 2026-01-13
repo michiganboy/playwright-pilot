@@ -1,6 +1,6 @@
 import { test } from "../fixtures/test-fixtures";
 import * as factories from "../../src/testdata/factories";
-import { load } from "../../src/utils/dataStore";
+import type * as models from "../../src/testdata/models";
 
 // ---
 // Tests for {{description}}
@@ -11,10 +11,11 @@ import { load } from "../../src/utils/dataStore";
 // ---
 
 test.describe.serial("{{specId}} - {{description}} {{tag}}", () => {
-  test("[{{testId}}] {{description}} flow", async ({ {{pageFixture}} }) => {
-    await factories.createUser().save("{{featureKey}}.user");
-    const user = await load("{{featureKey}}.user");
-    if (!user) {
+  test("[{{testId}}] {{description}} flow", async ({ {{pageFixture}}, set, get }) => {
+    const user = factories.createUser();
+    await set("test.user", user);
+    const userData = await get<models.User>("test.user");
+    if (!userData) {
       throw new Error("User data not found in data store.");
     }
 

@@ -6,3 +6,6 @@ test-results/
 *.log
 .env
 .env.local
+# Runtime data store (test.* keys) - gitignored
+src/testdata/runState.json
+src/testdata/runState.lock

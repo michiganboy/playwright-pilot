@@ -28,6 +28,7 @@ function modelExists(modelKey: string): boolean {
   return fileExists(modelPath);
 }
 
+
 /**
  * Adds a new factory.
  */
@@ -90,8 +91,8 @@ export async function addFactory(factoryName?: string): Promise<void> {
       default: true,
     });
     if (useExistingModel) {
-      console.log(`No new factory created. Existing model "${FactoryName}" is being used.`);
-      return;
+      modelKey = factoryKey;
+      ModelName = FactoryName;
     } else {
       // Prompt for new model name (with validation loop)
       while (true) {
@@ -151,11 +152,14 @@ export async function addFactory(factoryName?: string): Promise<void> {
     );
   }
 
-  // Step 5: Create factory (factory file is named after model, not factory name)
+  // Step 5: Create builder file
+  await createBuilderFile(modelKey, ModelName);
+
+  // Step 6: Create factory (factory file is named after model, not factory name)
   await createFactoryFile(modelKey, ModelName);
   await addFactoryExport(modelKey);
 
-  // Step 6: Success message
+  // Step 7: Success message
   console.log(`✓ Factory "${FactoryName}" created and associated to model "${ModelName}"`);
   console.log(`\n📋 Usage example:`);
   console.log(`\n  const ${modelKey} = factories.create${ModelName}();`);
@@ -180,7 +184,30 @@ async function createModelFile(modelKey: string, ModelName: string): Promise<voi
     throw new Error(`Model template not found: ${templatePath}`);
   }
 
-  const placeholderFields = "  id: string;\n  email: string;";
+  // Special case: User model gets full default field set
+  // WHY: User is the most common model in test automation. Providing a complete
+  // default shape (id, email, role, firstName, lastName, fullName, phone, address)
+  // reduces boilerplate and ensures consistency across projects. Other models
+  // start with minimal fields (id, email) and can be extended as needed.
+  let placeholderFields: string;
+  if (modelKey === "user") {
+    placeholderFields = `  id: string;
+  email: string;
+  role: "admin" | "agent" | "viewer";
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  phone: string;
+  address: {
+    streetAddress: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  };`;
+  } else {
+    placeholderFields = "  id: string;\n  email: string;";
+  }
+
   const modelContent = template
     .replace(/{{ModelName}}/g, ModelName)
     .replace(/{{fields}}/g, placeholderFields);
@@ -260,6 +287,111 @@ async function addModelToIndex(modelKey: string, ModelName: string): Promise<voi
   }
 
   await writeFileSafe(indexPath, content, true);
+}
+
+/**
+ * Creates a builder file.
+ */
+async function createBuilderFile(modelKey: string, ModelName: string): Promise<void> {
+  const builderPath = paths.builder(modelKey);
+
+  // Special case: User builder gets full default field set
+  // WHY: User is the most common model in test automation. Providing a complete
+  // builder with all field generators and postBuild hook ensures new User factories
+  // ship with production-ready defaults. Other models use the generic template.
+  if (modelKey === "user") {
+    const userBuilderContent = `// User builder using mimicry-js (private - used by factories only)
+import { build } from "mimicry-js";
+import type * as models from "../../testdata/models";
+import { createTools } from "../../testdata/tools";
+
+// Define the User model for the builder
+interface UserModel {
+  id: string;
+  email: string;
+  role: "admin" | "agent" | "viewer";
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  phone: string;
+  address: {
+    streetAddress: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  };
+}
+
+// Create tools with idPrefix - tools are created per-builder to support per-test seeding
+function getTools() {
+  return createTools("user");
+}
+
+// Create the builder with default values
+const userBuilder = build<UserModel>({
+  fields: {
+    id: () => getTools().id.short(),
+    email: () => getTools().person.email(),
+    role: () => getTools().pick.one(["admin", "agent", "viewer"]) || "admin",
+    firstName: () => getTools().person.firstName(),
+    lastName: () => getTools().person.lastName(),
+    fullName: () => "", // Set in postBuild
+    phone: () => getTools().person.phone(),
+    address: () => ({
+      streetAddress: getTools().person.streetAddress(),
+      city: getTools().person.city(),
+      state: getTools().person.state(),
+      zipCode: getTools().person.zipCode(),
+    }),
+  },
+  traits: {
+    // Define traits (optional variations) here
+    // Example:
+    // admin: {
+    //   overrides: {
+    //     role: () => "admin" as const,
+    //     email: () => "admin@example.com",
+    //   },
+    // },
+  },
+  // Post-build hook: derive fullName from firstName and lastName
+  postBuild: (user) => {
+    user.fullName = \`\${user.firstName} \${user.lastName}\`;
+    return user;
+  },
+});
+
+// Export builder methods for factory use
+export function buildUser(overrides?: Partial<UserModel>): models.User {
+  return userBuilder.one({ overrides });
+}
+
+export function buildUsers(count: number, overrides?: Partial<UserModel>): models.User[] {
+  return userBuilder.many(count, { overrides });
+}
+
+// Export traits for factory use (if any)
+export const userTraits = {
+  // Example: admin: "admin" as const,
+} as const;
+`;
+    await writeFileSafe(builderPath, userBuilderContent);
+    return;
+  }
+
+  // Generic builder for other models
+  const templatePath = paths.templates("builder.ts");
+  const template = await readFileSafe(templatePath);
+
+  if (!template) {
+    throw new Error(`Builder template not found: ${templatePath}`);
+  }
+
+  const builderContent = template
+    .replace(/{{ModelName}}/g, ModelName)
+    .replace(/{{modelKey}}/g, modelKey);
+
+  await writeFileSafe(builderPath, builderContent);
 }
 
 /**
@@ -385,6 +517,13 @@ export async function deleteFactory(factoryName?: string): Promise<void> {
   // Delete file
   await deleteFileSafe(factoryPath);
 
+  // Delete builder file if it exists
+  const builderPath = paths.builder(modelKey);
+  if (fileExists(builderPath)) {
+    await deleteFileSafe(builderPath);
+    console.log(`✓ Deleted builder: ${builderPath}`);
+  }
+
   // Remove export
   await removeFactoryExport(modelKey);
 
@@ -458,3 +597,4 @@ async function removeModelFromIndex(modelKey: string, ModelName: string): Promis
 
   await writeFileSafe(indexPath, content, true);
 }
+

@@ -92,7 +92,7 @@ export const test = base.extend<Fixtures>({
 
 ## Implementing toLoginPilot()
 
-When you create a Login page using the CLI, it generates a stubbed `toLoginPilot()` method. You must replace the stub with your actual implementation.
+When you create a Login page using the CLI, it generates a stubbed `toLoginPilot()` method. You must replace the `throw new Error()` with your actual implementation.
 
 ### Generated Stub
 
@@ -104,6 +104,11 @@ toLoginPilot() {
       await this.navigateToLogin();
     },
     submit: async (username: string, password: string) => {
+      // TODO: Replace the error below with your login implementation.
+      // Example:
+      //   await this.enterUsername(username);
+      //   await this.enterPassword(password);
+      //   await this.clickLoginButton();
       throw new Error(
         "Login submission is not configured. Implement submit() in LoginPage.toLoginPilot() using your app's locators."
       );
@@ -364,7 +369,7 @@ loginPilot: async ({ loginPage }, use) => {
 
 **Error:** `Login submission is not configured. Implement submit() in LoginPage.toLoginPilot() using your app's locators.`
 
-**Solution:** Replace the stubbed `toLoginPilot()` implementation in your `LoginPage` class.
+**Solution:** Replace the `throw new Error()` in `toLoginPilot().submit()` with your actual login implementation in your `LoginPage` class.
 
 ### "Login credentials are required"
 

@@ -5,6 +5,7 @@ import { addPage, deletePage } from "./commands/page";
 import { addFeature, deleteFeature } from "./commands/feature";
 import { addSpec, deleteSpec } from "./commands/spec";
 import { addFactory, deleteFactory } from "./commands/factory";
+import { addSystemEntry, deleteSystemEntry } from "./commands/system";
 import { runAttendant } from "./commands/attendant";
 import { openReport } from "./commands/trace";
 
@@ -153,6 +154,32 @@ program
   .action(async (factoryName: string | undefined) => {
     try {
       await deleteFactory(factoryName);
+    } catch (err) {
+      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command("system:add")
+  .description("Add a canonical system entry to registry and dataStore")
+  .argument("[SystemKey]", "System key path (optional - will prompt if not provided)")
+  .action(async (systemKey: string | undefined) => {
+    try {
+      await addSystemEntry(systemKey);
+    } catch (err) {
+      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command("system:delete")
+  .description("Delete a canonical system entry from registry and dataStore")
+  .argument("[SystemKey]", "System key path (optional - will prompt if not provided)")
+  .action(async (systemKey: string | undefined) => {
+    try {
+      await deleteSystemEntry(systemKey);
     } catch (err) {
       console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exit(1);

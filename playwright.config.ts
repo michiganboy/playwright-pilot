@@ -24,6 +24,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   reporter: reporters,
+  globalSetup: "./global-setup.ts",
   globalTeardown: "./global-teardown.ts",
 });
 
