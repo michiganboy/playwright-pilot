@@ -24,17 +24,30 @@ export async function isPageReferenced(fixtureName: string, excludeFeature?: str
 
 /**
  * Gets the list of test files that reference a factory.
+ * Excludes tests/tools/ since those are internal framework tests.
  */
 export async function getFactoryReferencedFiles(factoryName: string): Promise<string[]> {
   const testFiles = await glob("tests/**/*.spec.ts", { cwd: REPO_ROOT });
   const referencedFiles: string[] = [];
   for (const file of testFiles) {
+    // Skip internal framework tests in tests/tools/
+    if (file.startsWith("tests/tools/")) {
+      continue;
+    }
     const content = await readFileSafe(path.join(REPO_ROOT, file));
     if (content && content.includes(factoryName)) {
       referencedFiles.push(file);
     }
   }
   return referencedFiles;
+}
+
+/**
+ * Checks if a factory is referenced in any test files.
+ */
+export async function isFactoryReferenced(factoryName: string): Promise<boolean> {
+  const files = await getFactoryReferencedFiles(factoryName);
+  return files.length > 0;
 }
 
 /**

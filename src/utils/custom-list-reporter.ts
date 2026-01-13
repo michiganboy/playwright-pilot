@@ -91,7 +91,7 @@ class CustomListReporter implements Reporter {
     }
   }
 
-  onEnd(result: FullResult) {
+  async onEnd(result: FullResult) {
     // Stop all progress bars before printing anything else
     if (this.multiBar) {
       this.multiBar.stop();
@@ -152,6 +152,50 @@ class CustomListReporter implements Reporter {
 
     const summary = parts.join(", ");
     console.log(`${summary} (${(result.duration / 1000).toFixed(1)}s)`);
+
+    // Write seed and run metadata to .last-run.json
+    await this.writePilotMetadata(result);
+  }
+
+  private async writePilotMetadata(result: FullResult): Promise<void> {
+    try {
+      const fs = await import("fs/promises");
+      const path = await import("path");
+      const lastRunPath = path.resolve(process.cwd(), "test-results/.last-run.json");
+
+      let lastRun: any = {};
+      try {
+        const content = await fs.readFile(lastRunPath, "utf-8");
+        lastRun = JSON.parse(content);
+      } catch {
+        // File doesn't exist yet, start with empty object
+      }
+
+      const seed = (global as any).__PILOT_SEED__ || process.env.PILOT_SEED || "";
+      const seedMode = (global as any).__PILOT_SEED_MODE__ || (process.env.PILOT_SEED ? "forced" : "generated");
+      const startedAt = (global as any).__PILOT_STARTED_AT__ || new Date().toISOString();
+      const workers = (global as any).__PILOT_WORKERS__ || 1;
+
+      lastRun.pilot = {
+        seed,
+        seedMode,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        workers,
+      };
+
+      // Preserve existing keys
+      await fs.writeFile(lastRunPath, JSON.stringify(lastRun, null, 2));
+
+      // Print seed info in summary
+      if (seed) {
+        console.log(`\nSeed: ${seed} (${seedMode})`);
+        console.log(`To reproduce: PILOT_SEED=${seed} npm run test`);
+      }
+    } catch (err) {
+      // Don't fail the run if metadata write fails
+      console.error("Failed to write pilot metadata:", err);
+    }
   }
 
   private extractFeature(test: TestCase): string {

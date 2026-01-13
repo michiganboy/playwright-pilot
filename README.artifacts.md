@@ -88,7 +88,8 @@ ADO_ATTACH_LAST_RUN=true
 | `ADO_ATTACH_ON_FAILURE_ONLY` | `false` | If `true`, only attach artifacts for failed tests |
 | `ADO_ATTACH_TRACE` | `true` | Attach `trace.zip` files |
 | `ADO_ATTACH_ERROR_CONTEXT` | `true` | Attach `error-context.md` files (Playwright-generated) |
-| `ADO_ATTACH_LAST_RUN` | `true` | Attach `.last-run.json` metadata file |
+| `ADO_ATTACH_LAST_RUN` | `true` | Attach `.last-run.json` metadata file (includes pilot seed/run metadata) |
+| `ADO_ATTACH_RUN_STATE` | `false` | Attach `runState.json` (test.* data from run) |
 
 ### How Attachments Work
 
@@ -116,6 +117,8 @@ ADO_ATTACH_LAST_RUN=true
 #### .last-run.json
 
 - **Location:** `test-results/.last-run.json`
+- **Contents:** Playwright run metadata + pilot metadata (seed, seedMode, startedAt, finishedAt, workers)
+- **Pilot namespace:** Seed and run metadata are merged under `pilot` key
 - **When:** Created after test run
 - **Contains:** Metadata about the test run (timestamps, counts, etc.)
 

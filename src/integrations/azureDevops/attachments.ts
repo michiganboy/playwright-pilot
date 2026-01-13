@@ -92,6 +92,7 @@ export async function uploadTestArtifacts(
   const attachTrace = process.env.ADO_ATTACH_TRACE !== "false";
   const attachErrorContext = process.env.ADO_ATTACH_ERROR_CONTEXT !== "false";
   const attachLastRun = process.env.ADO_ATTACH_LAST_RUN !== "false";
+  const attachRunState = process.env.ADO_ATTACH_RUN_STATE === "true";
 
   // Collect trace.zip
   if (attachTrace) {

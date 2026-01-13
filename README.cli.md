@@ -26,10 +26,10 @@ Examples:
 | `suite:delete`          | Delete suite and remove from feature config                | -                                            | `--feature <key>` - Feature key<br>`--suite <name>` - Suite name |
 | `spec:add`              | Legacy alias for `suite:add`                               | -                                            | `--feature <key>` - Feature key                                  |
 | `spec:delete`           | Legacy alias for `suite:delete`                            | -                                            | `--feature <key>` - Feature key<br>`--suite <name>` - Suite name |
-| `factory:add [name]`    | Create data factory and add export                         | `[name]` - Model name (prompts if omitted)   | -                                                                |
+| `factory:add [name]`    | Create data factory, builder, and model (if needed)        | `[name]` - Model name (prompts if omitted)   | -                                                                |
 | `factory:delete [name]` | Delete factory and remove export                           | `[name]` - Factory name (prompts if omitted) | -                                                                |
 | `trace:open`            | Open Playwright HTML report in browser                     | -                                            | -                                                                |
-| `attendant`             | Run health checks (read-only)                              | -                                            | -                                                                |
+| `attendant`             | Run health gate (static checks + test suites)              | -                                            | -                                                                |
 | `help`                  | Show help information                                      | -                                            | -                                                                |
 
 ## Interactive Mode
@@ -226,7 +226,7 @@ npm run pilot suite:add --feature "user-management"
 
 ## Creating Factories
 
-Data factories follow the existing pattern. **Models must exist before factories can be created.**
+Data factories follow the existing pattern. **Factory creation generates model, builder, and factory files with all necessary plumbing.**
 
 ```bash
 # Create a factory
@@ -252,22 +252,64 @@ npm run pilot factory:add "Product"
    - Model file created with placeholder interface
    - `models/index.ts` updated (export + ModelMap entry)
 
-4. **Factory Creation**:
-   - Factory file created with simple factory function
+4. **Builder Creation**:
+
+   - Builder file created with mimicry-js setup
+   - Includes tools imports (pick, person, date, id, str)
+   - Ready for field generators, traits, and post-build hooks
+
+5. **Factory Creation**:
+   - Factory file created that uses the builder internally
    - `factories/index.ts` updated with export
 
 **Important Notes:**
 
 - **No field prompting**: Models are created with placeholder interfaces. You must manually add fields.
-- **No faker inference**: Factories are created with basic structure. You must manually add faker methods.
+- **No faker inference**: Builders are created with basic structure. You must manually add field generators using tools.
 - **No persistence methods**: Factories do not include `.save()` methods. Use `set/get` from dataStore instead.
+- **Builders are private**: Tests should use factories, not builders directly.
+- **Tools usage**: See [README.tools.md](./README.tools.md) for tools API and [README.builders.md](./README.builders.md) for builder patterns.
 
 **Example Generated Model:**
 
 ```typescript
 // src/testdata/models/product.ts
 export interface Product {
-  // TODO: Add fields here
+  id: string;
+  email: string;
+}
+```
+
+**Example Generated Builder:**
+
+```typescript
+// src/testdata/builders/product.builder.ts (private - used by factories only)
+import { build } from "mimicry-js";
+import type * as models from "../models";
+import { createTools } from "../tools";
+
+// Create tools with idPrefix - tools are created per-builder to support per-test seeding
+function getTools() {
+  return createTools("product");
+}
+
+const productBuilder = build<ProductModel>({
+  fields: {
+    id: () => getTools().id.short(),
+    email: () => getTools().person.email(),
+    // Add other field generators using tools
+  },
+  traits: {
+    // Define traits (optional variations) here
+  },
+  postBuild: (product) => {
+    // Optional post-build hook
+    return product;
+  },
+});
+
+export function buildProduct(overrides?: Partial<ProductModel>): models.Product {
+  return productBuilder.one({ overrides });
 }
 ```
 
@@ -275,22 +317,19 @@ export interface Product {
 
 ```typescript
 // src/testdata/factories/product.factory.ts
-import type * as models from "../models";
+import type * as models from "../../testdata/models";
+import { buildProduct } from "../../testdata/builders/product.builder";
 
 export function createProduct(overrides?: Partial<models.Product>) {
-  const product: models.Product = {
-    ...overrides,
-  } as models.Product;
-
-  return product;
+  return buildProduct(overrides);
 }
 ```
 
 **Example Output:**
 
 ```
-Normalized model name: "Product" → "product"
-✓ Factory "Product" created and associated to model "Product"
+Normalized factory name: "Product" → "product"
+✓ Factory "Product" created
 
 📋 Usage example:
 
@@ -381,16 +420,16 @@ npm run pilot factory:delete "Product"
 - Requires typed confirmation: `delete factory <normalized-name>`
 - Removes the factory file and export from `factories/index.ts`
 
-## Health Checks (Attendant)
+## Health Gate (Attendant)
 
-The `attendant` command runs read-only health checks on framework structure.
+The `attendant` command is a **health gate** that validates framework correctness. If attendant passes, the repo is in a known-good state.
 
 ```bash
-# Run health checks
+# Run health gate
 npm run pilot attendant
 ```
 
-**Checks Performed:**
+**Phase 1: Static Checks**
 
 - ✅ Validates `featureConfig.json` entries have required fields (tag, planId, suites)
 - ✅ Validates test directories exist for each feature
@@ -398,34 +437,37 @@ npm run pilot attendant
 - ⚠️ Warns about orphaned fixtures (wired but page doesn't exist)
 - ✅ Validates each `*.factory.ts` is exported in `factories/index.ts`
 - ⚠️ Warns about stale exports (exported but factory file doesn't exist)
-- ⚠️ Warns about suite files missing required imports
+- ⚠️ Warns about suite files missing required imports (excludes `tests/tools/`)
 
-**Example Output:**
+**Phase 2: Authoritative Test Suites**
+
+After static checks pass, attendant runs the following test suites sequentially:
+
+1. **Full CLI + unit suite** - All Jest tests
+2. **Suite command tests** - `commands.suite.test.ts`
+3. **Namespace enforcement tests** - `namespace-enforcement.test.ts`
+4. **RunState lifecycle tests** - `runstate-lifecycle.test.ts`
+5. **Last-run metadata tests** - `last-run-metadata.test.ts`
+6. **TOOLS-001 user defaults** - Playwright factory tools validation
+7. **TOOLS-002 tools surface** - Playwright tools API validation
+8. **TOOLS-003 parallel determinism** - Multi-worker collision detection (4 workers)
+
+**Behavior:**
+
+- If **any step fails**: Attendant stops immediately, exits non-zero, and reports which step failed
+- If **all steps pass**: Prints success summary
+
+**Example Output (Success):**
 
 ```
-🔍 Running health checks...
-
-📊 Health Check Results:
-
-✅ All checks passed!
+✅ Attendant check passed: CLI, testdata, utils, and TOOLS validated.
 ```
 
-Or if issues are found:
+**Example Output (Failure):**
 
 ```
-📊 Health Check Results:
-
-❌ Errors:
-
-   Feature "user-management": planId must be a positive number
-   Page "UserProfile": fixture type entry missing in test-fixtures.ts
-
-⚠️  Warnings:
-
-   Factory export "product": factory file not found (stale export)
-   Suite "tests/user-management/USER-101-user-login.spec.ts": missing factories import
-
-Summary: 2 error(s), 1 warning(s)
+❌ Step 3 "Namespace enforcement tests" failed
+   Command: npm run test:cli -- --runInBand --verbose src/testdata/__tests__/namespace-enforcement.test.ts
 ```
 
 ## Opening Traces
@@ -482,5 +524,7 @@ Examples in this documentation match the current templates. If you need to custo
 - [README.md](./README.md) - Main documentation and bootstrap guide
 - [README.ado.md](./README.ado.md) - Azure DevOps mapping philosophy
 - [README.testdata.md](./README.testdata.md) - Test data system details
+- [README.tools.md](./README.tools.md) - Factory tools usage
+- [README.builders.md](./README.builders.md) - Builder usage with mimicry-js
 - [README.login.md](./README.login.md) - AutoPilot and LoginPilot architecture
 - [README.artifacts.md](./README.artifacts.md) - Trace and attachment details

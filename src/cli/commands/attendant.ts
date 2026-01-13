@@ -1,9 +1,85 @@
 // Health check command (attendant).
+// Attendant is a HEALTH GATE - if it succeeds, the repo is in a known-good state.
 import { readJsonSafe, readFileSafe, fileExists, dirExists } from "../utils/fileOps";
 import { paths, REPO_ROOT } from "../utils/paths";
 import { getSuiteIds, hasSuiteId } from "../../utils/featureConfig";
 import { glob } from "fast-glob";
 import path from "path";
+import { execSync, type ExecSyncOptions } from "child_process";
+
+/**
+ * Test suite step definition for the health gate.
+ */
+export interface TestStep {
+  name: string;
+  command: string;
+  env?: Record<string, string>;
+}
+
+/**
+ * The authoritative test suites that define framework correctness.
+ * Attendant runs these in order; any failure stops immediately.
+ */
+export const ATTENDANT_TEST_STEPS: TestStep[] = [
+  {
+    name: "Full CLI + unit suite",
+    command: "npm run test:cli -- --runInBand --verbose",
+  },
+  {
+    name: "Suite command tests",
+    command: "npm run test:cli -- --runInBand --verbose src/cli/__tests__/commands.suite.test.ts",
+  },
+  {
+    name: "Namespace enforcement tests",
+    command: "npm run test:cli -- --runInBand --verbose src/testdata/__tests__/namespace-enforcement.test.ts",
+  },
+  {
+    name: "RunState lifecycle tests",
+    command: "npm run test:cli -- --runInBand --verbose src/testdata/__tests__/runstate-lifecycle.test.ts",
+  },
+  {
+    name: "Last-run metadata tests",
+    command: "npm run test:cli -- --runInBand --verbose src/utils/__tests__/last-run-metadata.test.ts",
+  },
+  {
+    name: "TOOLS-001 user defaults",
+    command: 'npm run test -- --grep="TOOLS-001" --reporter=list',
+    env: { PILOT_SEED: "12345", PILOT_KEEP_RUNSTATE: "true" },
+  },
+  {
+    name: "TOOLS-002 tools surface",
+    command: 'npm run test -- --grep="TOOLS-002" --reporter=list',
+    env: { PILOT_SEED: "12345", PILOT_KEEP_RUNSTATE: "true" },
+  },
+  {
+    name: "TOOLS-003 parallel determinism + collision stress",
+    command: 'npm run test -- --grep="TOOLS-003-WRITE|TOOLS-003-COLLECT" --reporter=list --workers=4',
+    env: { PILOT_SEED: "12345", PILOT_KEEP_RUNSTATE: "true" },
+  },
+];
+
+/**
+ * Executor function for running commands - can be overridden for testing.
+ */
+export let commandExecutor = (command: string, options: ExecSyncOptions): void => {
+  execSync(command, options);
+};
+
+/**
+ * Sets the command executor (for testing).
+ */
+export function setCommandExecutor(executor: (command: string, options: ExecSyncOptions) => void): void {
+  commandExecutor = executor;
+}
+
+/**
+ * Resets the command executor to default (for testing cleanup).
+ */
+export function resetCommandExecutor(): void {
+  commandExecutor = (command: string, options: ExecSyncOptions): void => {
+    execSync(command, options);
+  };
+}
 
 interface FeatureConfig {
   [key: string]: {
@@ -26,6 +102,10 @@ export async function runAttendant(): Promise<void> {
 
   console.log("🔍 Running health checks...\n");
 
+  // ─────────────────────────────────────────────────────────────────
+  // PHASE 1: Static checks (feature config, directories, fixtures, exports)
+  // ─────────────────────────────────────────────────────────────────
+
   // Check featureConfig.json
   await checkFeatureConfig(results);
 
@@ -41,8 +121,8 @@ export async function runAttendant(): Promise<void> {
   // Check spec imports
   await checkSpecImports(results);
 
-  // Print results
-  console.log("\n📊 Health Check Results:\n");
+  // Print static check results
+  console.log("\n📊 Static Check Results:\n");
 
   const errors = results.filter((r) => r.type === "error");
   const warnings = results.filter((r) => r.type === "warning");
@@ -67,9 +147,59 @@ export async function runAttendant(): Promise<void> {
   }
 
   if (errors.length === 0 && warnings.length === 0) {
-    console.log("✅ All checks passed!\n");
+    console.log("✅ All static checks passed!\n");
   } else {
     console.log(`Summary: ${errors.length} error(s), ${warnings.length} warning(s)\n`);
+    // Don't fail on warnings, but fail on errors
+    if (errors.length > 0) {
+      throw new Error(`Static checks failed with ${errors.length} error(s)`);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // PHASE 2: Run authoritative test suites (health gate)
+  // ─────────────────────────────────────────────────────────────────
+
+  console.log("🧪 Running authoritative test suites...\n");
+
+  await runTestSuites();
+
+  // ─────────────────────────────────────────────────────────────────
+  // SUCCESS: All checks passed
+  // ─────────────────────────────────────────────────────────────────
+
+  console.log("\n✅ Attendant check passed: CLI, testdata, utils, and TOOLS validated.\n");
+}
+
+/**
+ * Runs the authoritative test suites sequentially.
+ * Stops immediately if any step fails.
+ */
+export async function runTestSuites(): Promise<void> {
+  for (let i = 0; i < ATTENDANT_TEST_STEPS.length; i++) {
+    const step = ATTENDANT_TEST_STEPS[i];
+    const stepNumber = i + 1;
+
+    console.log(`\n[Step ${stepNumber}/${ATTENDANT_TEST_STEPS.length}] ${step.name}`);
+    console.log(`Command: ${step.command}\n`);
+
+    try {
+      const options: ExecSyncOptions = {
+        cwd: REPO_ROOT,
+        stdio: "inherit",
+        env: step.env ? { ...process.env, ...step.env } : process.env,
+      };
+
+      commandExecutor(step.command, options);
+
+      console.log(`✓ Step ${stepNumber} passed: ${step.name}\n`);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`\n❌ Step ${stepNumber} FAILED: ${step.name}`);
+      console.error(`   Command: ${step.command}`);
+      console.error(`   Error: ${errorMsg}\n`);
+      throw new Error(`Attendant failed at step ${stepNumber}: ${step.name}\nCommand: ${step.command}`);
+    }
   }
 }
 
@@ -212,8 +342,8 @@ async function checkFactoryExports(results: HealthCheckResult[]): Promise<void> 
   const factoryFiles = await glob("src/testdata/factories/*.factory.ts", { cwd: REPO_ROOT });
   const exportedFactories = new Set<string>();
 
-  // Extract exports from index
-  const exportMatches = Array.from(indexContent.matchAll(/export \* from "\.\/(\w+)\.factory";/g));
+  // Extract exports from index (handle both single and double quotes)
+  const exportMatches = Array.from(indexContent.matchAll(/export \* from ['"]\.\/(\w+)\.factory['"];/g));
   for (const match of exportMatches) {
     exportedFactories.add(match[1]);
   }
@@ -243,11 +373,18 @@ async function checkFactoryExports(results: HealthCheckResult[]): Promise<void> 
 
 /**
  * Checks spec file imports.
+ * Note: tests/tools/ specs are excluded - they are framework internals tests
+ * that don't require the standard imports.
  */
 async function checkSpecImports(results: HealthCheckResult[]): Promise<void> {
   const specFiles = await glob("tests/**/*.spec.ts", { cwd: REPO_ROOT });
 
   for (const specFile of specFiles) {
+    // Skip /tools/ specs - they are framework internals tests
+    if (specFile.includes("/tools/") || specFile.includes("\\tools\\")) {
+      continue;
+    }
+
     const content = await readFileSafe(path.join(REPO_ROOT, specFile));
     if (!content) continue;
 

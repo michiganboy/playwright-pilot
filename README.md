@@ -18,7 +18,7 @@ Playwright Pilot is designed for:
 - **Page Objects + Fixtures** - Automatic wiring of page objects into Playwright fixtures
 - **AutoPilot Workflows** - Cross-application actions like `autoPilot.login()` that work across features
 - **ADO Test Plan Mapping** - Features map to test plans, suites to test suites, tests to test cases (see [README.ado.md](./README.ado.md))
-- **Test Data System** - Models, factories, and dataStore for type-safe test data management (see [README.testdata.md](./README.testdata.md))
+- **Test Data System** - Models, builders (mimicry-js), factories, and split dataStore (system._ → canonical, test._ → runtime) (see [README.testdata.md](./README.testdata.md), [README.tools.md](./README.tools.md), and [README.builders.md](./README.builders.md))
 - **Trace Capture + ADO Attachments** - Automatic trace recording and configurable artifact uploads to Azure DevOps (see [README.artifacts.md](./README.artifacts.md))
 - **trace:open Command** - Quick access to Playwright HTML reports via `npm run pilot trace:open`
 
@@ -34,7 +34,10 @@ playwright-pilot/
 │   ├── testdata/
 │   │   ├── factories/         # Test data factories
 │   │   ├── models/             # TypeScript models
-│   │   ├── dataStore.json      # Cross-test data persistence
+│   │   ├── builders/           # Builders (mimicry-js) for factories
+│   │   ├── dataStore.json      # Canonical system.* data (committed)
+│   │   ├── runState.json       # Runtime test.* data (gitignored)
+│   │   ├── system.ts           # System key registry
 │   │   └── featureConfig.json  # Feature configuration for ADO
 │   └── utils/
 │       ├── autoPilot.ts        # Cross-app workflows (login, logout, etc.)
@@ -62,10 +65,10 @@ npm install
 Create a `.env` file in the root directory:
 
 ```env
-# Application
+# Base URL for the application
 BASE_URL=http://localhost:3000
 
-# Login Credentials (for AutoPilot.login())
+# Login credentials (used by autoPilot.login())
 LOGIN_EMAIL=user@example.com
 LOGIN_PASSWORD=password123
 
@@ -73,14 +76,50 @@ LOGIN_PASSWORD=password123
 ADO_ORG_URL=https://dev.azure.com/your-org
 ADO_PROJECT=your-project
 ADO_TOKEN=your-personal-access-token
+BUILD_ID=<valid-build-id-from-ado>
+BUILD_NUMBER=20251205.1
 
-# Artifact Attachments (optional, defaults shown)
+# Set to 'true' to automatically sync test results to Azure DevOps after test runs
+ADO_AUTO_SYNC=false
+
+# Main toggle - enable/disable all artifact attachments
 ADO_ATTACH_ARTIFACTS=true
+
+# Only attach artifacts for failed tests (default: false)
 ADO_ATTACH_ON_FAILURE_ONLY=false
-ADO_ATTACH_TRACE=true
-ADO_ATTACH_ERROR_CONTEXT=true
-ADO_ATTACH_LAST_RUN=true
+
+# Individual artifact toggles (all default to true)
+ADO_ATTACH_TRACE=true          # Attach trace.zip
+ADO_ATTACH_ERROR_CONTEXT=true  # Attach error-context.md
+ADO_ATTACH_LAST_RUN=true       # Attach .last-run.json
+
+# Pilot Test Data Configuration
+# PILOT_SEED: Set a fixed seed for reproducible test data (leave empty for auto-generated)
+# PILOT_KEEP_RUNSTATE: Preserve runState.json between test runs (useful for multi-stage tests)
+PILOT_SEED=
+PILOT_KEEP_RUNSTATE=false
 ```
+
+#### Environment Variable Reference
+
+| Variable                     | Default        | Description                                    |
+| ---------------------------- | -------------- | ---------------------------------------------- |
+| `BASE_URL`                   | -              | Application base URL for tests                 |
+| `LOGIN_EMAIL`                | -              | Default login email for `autoPilot.login()`    |
+| `LOGIN_PASSWORD`             | -              | Default login password for `autoPilot.login()` |
+| `ADO_ORG_URL`                | -              | Azure DevOps organization URL                  |
+| `ADO_PROJECT`                | -              | Azure DevOps project name                      |
+| `ADO_TOKEN`                  | -              | Azure DevOps personal access token             |
+| `BUILD_ID`                   | -              | Azure DevOps build ID (for CI/CD)              |
+| `BUILD_NUMBER`               | -              | Azure DevOps build number (for CI/CD)          |
+| `ADO_AUTO_SYNC`              | `false`        | Auto-sync test results to ADO after runs       |
+| `ADO_ATTACH_ARTIFACTS`       | `true`         | Master toggle for artifact attachments         |
+| `ADO_ATTACH_ON_FAILURE_ONLY` | `false`        | Only attach artifacts for failed tests         |
+| `ADO_ATTACH_TRACE`           | `true`         | Attach trace.zip files                         |
+| `ADO_ATTACH_ERROR_CONTEXT`   | `true`         | Attach error-context.md files                  |
+| `ADO_ATTACH_LAST_RUN`        | `true`         | Attach .last-run.json metadata                 |
+| `PILOT_SEED`                 | Auto-generated | Fixed seed for reproducible test data          |
+| `PILOT_KEEP_RUNSTATE`        | `false`        | Preserve runState.json between test runs       |
 
 ### Step 3: Create Your First Feature
 
@@ -168,13 +207,11 @@ export class LoginPage {
       goto: async () => {
         await this.navigateToLogin();
       },
-      // Below is an example of what you would replace the stub with.
-      // Replace the stub implementation below with the commented code.
-      // submit: async (username: string, password: string) => {
-      //   await this.enterLoginCredentials(username, password);
-      //   await this.clickLoginButton();
-      // },
       submit: async (username: string, password: string) => {
+        // TODO: Replace the error below with your login implementation.
+        // Example:
+        //   await this.enterLoginCredentials(username, password);
+        //   await this.clickLoginButton();
         throw new Error("Login submission is not configured. Implement submit() in LoginPage.toLoginPilot() using your app's locators.");
       },
     };
@@ -184,7 +221,7 @@ export class LoginPage {
 
 ### Step 5: Implement toLoginPilot() Adapter
 
-The CLI generates a stubbed `toLoginPilot()` method for Login pages (shown in Step 4 above). Replace the stub `submit()` method with your actual implementation:
+The CLI generates a stubbed `toLoginPilot()` method for Login pages (shown in Step 4 above). Replace the `throw new Error()` in the `submit()` method with your actual implementation:
 
 ```typescript
 // In LoginPage.ts - replace the stubbed submit() method
@@ -287,7 +324,6 @@ Open the generated spec file (e.g., `tests/login-page/LOGI-101-user-login.spec.t
 ```typescript
 import { test, expect } from "../fixtures/test-fixtures";
 import * as factories from "../../src/testdata/factories";
-import { load } from "../../src/utils/dataStore";
 
 // ---
 // Tests for User Login
@@ -298,7 +334,7 @@ import { load } from "../../src/utils/dataStore";
 // ---
 
 test.describe.serial("LOGI-101 - User Login @login-page", () => {
-  test("[LOGI-10001] Login with valid credentials", async ({ page, autoPilot }) => {
+  test("[LOGI-10001] Login with valid credentials", async ({ page, autoPilot, set, get }) => {
     await test.step("Login to application", async () => {
       await autoPilot.login();
     });

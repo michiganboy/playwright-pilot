@@ -1,8 +1,13 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/src/cli/__tests__'],
+  roots: [
+    '<rootDir>/src/cli/__tests__',
+    '<rootDir>/src/testdata/__tests__',
+    '<rootDir>/src/utils/__tests__',
+  ],
   testMatch: ['**/*.test.ts'],
+  maxWorkers: 1, // Run tests serially to avoid memory issues
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
@@ -19,7 +24,9 @@ module.exports = {
   ],
   collectCoverageFrom: [
     'src/cli/**/*.ts',
-    '!src/cli/**/*.d.ts',
-    '!src/cli/__tests__/**',
+    'src/testdata/**/*.ts',
+    'src/utils/**/*.ts',
+    '!src/**/*.d.ts',
+    '!src/**/__tests__/**',
   ],
 };
