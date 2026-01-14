@@ -2,11 +2,18 @@
 import figlet from "figlet";
 import { PLANE_ASCII } from "./plane";
 
+// Banner width thresholds
+const FULL_BANNER_MIN_WIDTH = 100;  // Full "Playwright Pilot" + plane
+const MEDIUM_BANNER_MIN_WIDTH = 70; // "Playwright Pilot" in Small Slant, no plane
+// Below 70: "PP" + plane
+
+// Tagline displayed below the banner
+const TAGLINE = "Fasten your Seatbelts and Prepare for Takeoff";
+
 /**
- * Generates ASCII art banner using figlet
- * Uses "Slant" font for a compact, stylish look
+ * Generates full-size ASCII art banner (Slant font)
  */
-export function getBanner(): string {
+function getFullBanner(): string {
     return figlet.textSync("Playwright Pilot", {
         font: "Slant",
         horizontalLayout: "default",
@@ -15,41 +22,68 @@ export function getBanner(): string {
     });
 }
 
-// Tagline displayed below the banner
-const TAGLINE = "Fasten your Seatbelts and Prepare for Takeoff";
+/**
+ * Generates medium-size ASCII art banner (Small Slant font)
+ */
+function getMediumBanner(): string {
+    return figlet.textSync("Playwright Pilot", {
+        font: "Small Slant",
+        horizontalLayout: "default",
+        verticalLayout: "default",
+    });
+}
+
+/**
+ * Generates mini ASCII art banner (PP in Slant font)
+ */
+function getMiniBanner(): string {
+    return figlet.textSync("PP", {
+        font: "Slant",
+        horizontalLayout: "default",
+        verticalLayout: "default",
+    });
+}
 
 /**
  * Combines figlet text and plane ASCII side by side
- * Plane is vertically offset to appear higher
  */
-export function getCombinedBanner(): string {
-    const figletLines = getBanner().split("\n");
+function combineBannerWithPlane(bannerText: string): string {
+    const figletLines = bannerText.split("\n");
     const planeLines = PLANE_ASCII.split("\n");
-
-    // How many lines to shift the plane UP (positive = higher)
-    const planeOffset = 0;
-
-    // Prepend empty lines to plane to shift it up relative to figlet
-    const paddedPlaneLines = [
-        ...planeLines,
-        ...Array(planeOffset).fill(""),
-    ];
 
     // Find max width of figlet text for padding
     const maxFigletWidth = Math.max(...figletLines.map((l) => l.length));
 
     // Pad figlet to match plane length
-    const maxLines = Math.max(figletLines.length, paddedPlaneLines.length);
+    const maxLines = Math.max(figletLines.length, planeLines.length);
     while (figletLines.length < maxLines) figletLines.unshift("");
 
     // Combine side by side with spacing
     const combined = figletLines.map((figletLine, i) => {
         const paddedFiglet = figletLine.padEnd(maxFigletWidth, " ");
-        const planeLine = paddedPlaneLines[i] || "";
+        const planeLine = planeLines[i] || "";
         return paddedFiglet + planeLine;
     });
 
     return combined.join("\n");
+}
+
+/**
+ * Gets the appropriate banner based on terminal width
+ */
+export function getCombinedBanner(): string {
+    const terminalWidth = process.stdout.columns || 100;
+
+    if (terminalWidth >= FULL_BANNER_MIN_WIDTH) {
+        // Full banner: "Playwright Pilot" (Slant) + plane
+        return combineBannerWithPlane(getFullBanner());
+    } else if (terminalWidth >= MEDIUM_BANNER_MIN_WIDTH) {
+        // Medium banner: "Playwright Pilot" (Small Slant), no plane
+        return getMediumBanner();
+    } else {
+        // Mini banner: "PP" (Slant) + plane
+        return combineBannerWithPlane(getMiniBanner());
+    }
 }
 
 /**

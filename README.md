@@ -1,4 +1,14 @@
-# Playwright Pilot
+```
+                                                                                       _
+    ____  __                          _       __    __     ____  _ __      __        -=`\
+   / __ \/ /___ ___  ___      _______(_)___ _/ /_  / /_   / __ \(_) /___  / /_   |\ ____\_\__
+  / /_/ / / __ `/ / / / | /| / / ___/ / __ `/ __ \/ __/  / /_/ / / / __ \/ __/ -=\ `""""""" "`)
+ / ____/ / /_/ / /_/ /| |/ |/ / /  / / /_/ / / / / /_   / ____/ / / /_/ / /_      `~~~~~/ /~~`
+/_/   /_/\__,_/\__, / |__/|__/_/  /_/\__, /_/ /_/\__/  /_/   /_/_/\____/\__/        -==/ /
+              /____/                /____/                                            '-'
+
+                         Fasten your Seatbelts and Prepare for Takeoff
+```
 
 Playwright Pilot is a Playwright-based automation framework with a first-class CLI designed to enforce consistency, traceability, and alignment with Azure DevOps Test Plans.
 

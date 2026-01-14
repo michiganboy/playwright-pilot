@@ -23,9 +23,10 @@ const program = new Command();
 
 program
   .name("pilot")
-  .description("CLI tool for scaffolding and maintaining Playwright test framework wiring")
+  .description("")
   .version("1.0.0")
-  .option("--no-banner", "Suppress ASCII banner on startup");
+  .option("--no-banner", "Suppress ASCII banner on startup")
+  .addHelpText("before", "Opinionated Playwright CLI for structured test suites, rich test data, and Azure DevOps alignment\n\n\n");
 
 // Add commands
 program
