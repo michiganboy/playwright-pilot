@@ -1,17 +1,31 @@
 // Preflight logging utility - captures and writes check output to flight logs
-import { existsSync, mkdirSync, writeFileSync } from "fs";
-import { join } from "path";
+import { existsSync, mkdirSync, writeFileSync, renameSync } from "fs";
+import { join, dirname } from "path";
 import { REPO_ROOT } from "./paths";
 
 const LOG_DIR = join(REPO_ROOT, ".pilot", "preflight");
 const TAIL_LINES = 60;
 
 /**
+ * Writes a file atomically using temp file + rename.
+ * Ensures directory exists before writing.
+ */
+function atomicWriteSync(filePath: string, content: string): void {
+  const dir = dirname(filePath);
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  const tempPath = `${filePath}.tmp`;
+  writeFileSync(tempPath, content, "utf-8");
+  renameSync(tempPath, filePath);
+}
+
+/**
  * Safely appends to a file, recreating directory and file if needed.
  */
 function safeAppend(filePath: string, content: string): void {
   try {
-    const dir = join(filePath, "..");
+    const dir = dirname(filePath);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
@@ -38,14 +52,13 @@ export function ensureLogDir(): void {
 }
 
 /**
- * Creates a new log file path with timestamp and initializes the file.
+ * Creates a new log file path with timestamp.
+ * Does NOT create the file - writeLogHeader handles atomic initialization.
  */
 export function createLogFilePath(phase: "preflight" | "takeoff" = "preflight"): string {
   ensureLogDir();
   const timestamp = getLogTimestamp();
-  const logPath = join(LOG_DIR, `${phase}-${timestamp}.log`);
-  writeFileSync(logPath, "", "utf-8");
-  return logPath;
+  return join(LOG_DIR, `${phase}-${timestamp}.log`);
 }
 
 /**
@@ -65,7 +78,8 @@ export function writeLogHeader(logPath: string, phase: "preflight" | "takeoff"):
     "=".repeat(70),
     "",
   ].join("\n");
-  writeFileSync(logPath, header, "utf-8");
+  // Atomic write: temp file + rename ensures no partial headers
+  atomicWriteSync(logPath, header);
 }
 
 /**
