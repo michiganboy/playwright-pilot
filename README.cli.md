@@ -36,22 +36,22 @@ Examples:
 
 ## Supported Commands
 
-| Command                 | Description                                                | Arguments                                    | Options                                                          |
-| ----------------------- | ---------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------- |
-| `feature:add [name]`    | Create feature with config, test folder, and initial specs | `[name]` - Feature name (prompts if omitted) | `--plan-id <id>` - ADO Plan ID                                   |
-| `feature:delete [name]` | Delete feature (test folder and config)                    | `[name]` - Feature name (prompts if omitted) | -                                                                |
-| `page:add [name]`       | Create page object and wire fixtures                       | `[name]` - Page name (prompts if omitted)    | `--feature <key>` - Feature key for directory                    |
-| `page:delete [name]`    | Delete page and unwire fixtures                            | `[name]` - Page name (prompts if omitted)    | -                                                                |
-| `suite:add`             | Create suite under existing feature                        | -                                            | `--feature <key>` - Feature key (prompts if omitted)             |
-| `suite:delete`          | Delete suite and remove from feature config                | -                                            | `--feature <key>` - Feature key<br>`--suite <name>` - Suite name |
-| `spec:add`              | Legacy alias for `suite:add`                               | -                                            | `--feature <key>` - Feature key                                  |
-| `spec:delete`           | Legacy alias for `suite:delete`                            | -                                            | `--feature <key>` - Feature key<br>`--suite <name>` - Suite name |
-| `factory:add [name]`    | Create data factory, builder, and model (if needed)        | `[name]` - Model name (prompts if omitted)   | -                                                                |
-| `factory:delete [name]` | Delete factory and remove export                           | `[name]` - Factory name (prompts if omitted) | -                                                                |
-| `trace:open`            | Open Playwright HTML report in browser                     | -                                            | -                                                                |
-| `preflight`             | Run preflight check (inspections + checklist verification) | -                                            | -                                                                |
+| Command                 | Description                                                | Arguments                                    | Options                                                                                                            |
+| ----------------------- | ---------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `feature:add [name]`    | Create feature with config, test folder, and initial specs | `[name]` - Feature name (prompts if omitted) | `--plan-id <id>` - ADO Plan ID                                                                                     |
+| `feature:delete [name]` | Delete feature (test folder and config)                    | `[name]` - Feature name (prompts if omitted) | -                                                                                                                  |
+| `page:add [name]`       | Create page object and wire fixtures                       | `[name]` - Page name (prompts if omitted)    | `--feature <key>` - Feature key for directory                                                                      |
+| `page:delete [name]`    | Delete page and unwire fixtures                            | `[name]` - Page name (prompts if omitted)    | -                                                                                                                  |
+| `suite:add`             | Create suite under existing feature                        | -                                            | `--feature <key>` - Feature key (prompts if omitted)                                                               |
+| `suite:delete`          | Delete suite and remove from feature config                | -                                            | `--feature <key>` - Feature key<br>`--suite <name>` - Suite name                                                   |
+| `spec:add`              | Legacy alias for `suite:add`                               | -                                            | `--feature <key>` - Feature key                                                                                    |
+| `spec:delete`           | Legacy alias for `suite:delete`                            | -                                            | `--feature <key>` - Feature key<br>`--suite <name>` - Suite name                                                   |
+| `factory:add [name]`    | Create data factory, builder, and model (if needed)        | `[name]` - Model name (prompts if omitted)   | -                                                                                                                  |
+| `factory:delete [name]` | Delete factory and remove export                           | `[name]` - Factory name (prompts if omitted) | -                                                                                                                  |
+| `trace:open`            | Open Playwright HTML report in browser                     | -                                            | -                                                                                                                  |
+| `preflight`             | Run preflight check (inspections + checklist verification) | -                                            | -                                                                                                                  |
 | `takeoff`               | Execute the resolved test plan                             | -                                            | `--suites <s>` - Comma-separated suite list<br>`--workers <n>` - Parallel workers<br>`--seed <s>` - Test data seed |
-| `help`                  | Show help information                                      | -                                            | -                                                                |
+| `help`                  | Show help information                                      | -                                            | -                                                                                                                  |
 
 ## Interactive Mode
 
@@ -283,13 +283,12 @@ npm run pilot factory:add "Product"
    - Factory file created that uses the builder internally
    - `factories/index.ts` updated with export
 
-**Important Notes:**
+**Next Steps:**
 
-- **No field prompting**: Models are created with placeholder interfaces. You must manually add fields.
-- **No faker inference**: Builders are created with basic structure. You must manually add field generators using tools.
-- **No persistence methods**: Factories do not include `.save()` methods. Use `set/get` from dataStore instead.
-- **Builders are private**: Tests should use factories, not builders directly.
-- **Tools usage**: See [README.tools.md](./README.tools.md) for tools API and [README.builders.md](./README.builders.md) for builder patterns.
+- Add fields to the generated model interface
+- Add field generators to the builder using tools (see [README.tools.md](./README.tools.md))
+- Use `set/get` from dataStore for persistence
+- Use factories in tests, not builders directly (see [README.builders.md](./README.builders.md))
 
 **Example Generated Model:**
 
