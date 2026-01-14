@@ -6,8 +6,10 @@ import { addFeature, deleteFeature } from "./commands/feature";
 import { addSpec, deleteSpec } from "./commands/spec";
 import { addFactory, deleteFactory } from "./commands/factory";
 import { addSystemEntry, deleteSystemEntry } from "./commands/system";
-import { runAttendant } from "./commands/attendant";
+import { runPreflight } from "./commands/preflight";
+import { runTakeoff } from "./commands/takeoff";
 import { openReport } from "./commands/trace";
+import { printBanner } from "./theme/banner";
 
 // ANSI color codes
 const RESET = "\x1b[0m";
@@ -22,7 +24,8 @@ const program = new Command();
 program
   .name("pilot")
   .description("CLI tool for scaffolding and maintaining Playwright test framework wiring")
-  .version("1.0.0");
+  .version("1.0.0")
+  .option("--no-banner", "Suppress ASCII banner on startup");
 
 // Add commands
 program
@@ -187,11 +190,35 @@ program
   });
 
 program
-  .command("attendant")
-  .description("Run health checks on framework structure (read-only)")
+  .command("preflight")
+  .description("Run preflight check to verify framework readiness")
   .action(async () => {
+    await printBannerIfAllowed();
     try {
-      await runAttendant();
+      const cleared = await runPreflight();
+      if (!cleared) {
+        process.exit(1);
+      }
+    } catch (err) {
+      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command("takeoff")
+  .description("Execute the resolved test plan")
+  .option("-s, --suites <suites>", "Comma-separated list of suites to run (default: all)")
+  .option("-w, --workers <workers>", "Number of parallel workers (default: 4)")
+  .option("--seed <seed>", "Seed for deterministic test data")
+  .action(async (options: { suites?: string; workers?: string; seed?: string }) => {
+    try {
+      const suites = options.suites ? options.suites.split(",").map(s => s.trim()) : ["all"];
+      const workers = options.workers ? parseInt(options.workers, 10) : 4;
+      const passed = await runTakeoff({ suites, workers, seed: options.seed });
+      if (!passed) {
+        process.exit(1);
+      }
     } catch (err) {
       console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exit(1);
@@ -210,10 +237,87 @@ program
     }
   });
 
-// Alias for help
-program.command("help").description("Show help information").action(() => {
+// Help command with banner
+program.command("help").description("Show help information").action(async () => {
+  await printBannerIfAllowed();
   program.help();
 });
 
-// Parse arguments
-program.parse();
+// Helper to get package version
+function getPackageVersion(packageName: string): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pkg = require(`${packageName}/package.json`);
+    return pkg.version;
+  } catch {
+    return "not installed";
+  }
+}
+
+// Helper to run git command and get output
+function getGitInfo(): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { execSync } = require("child_process");
+
+    const hash = execSync("git rev-parse --short HEAD", { encoding: "utf-8" }).trim();
+    const branch = execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
+    const status = execSync("git status --porcelain", { encoding: "utf-8" }).trim();
+    const cleanStatus = status === "" ? "clean" : "dirty";
+
+    return `${hash} (${branch}, ${cleanStatus})`;
+  } catch {
+    return "not a git repo";
+  }
+}
+
+// Version command with banner
+program.command("version").description("Show version number").action(async () => {
+  await printBannerIfAllowed();
+
+  console.log(`  Pilot:       ${program.version()}`);
+  console.log(`  Playwright:  ${getPackageVersion("@playwright/test")}`);
+  console.log(`  TypeScript:  ${getPackageVersion("typescript")}`);
+  console.log(`  Node:        ${process.version}`);
+  console.log(`  Platform:    ${process.platform} (${process.arch})`);
+  console.log(`  Git:         ${getGitInfo()}`);
+  console.log(`  Directory:   ${process.cwd()}`);
+  console.log();
+  console.log("  Clear skies ahead. Happy testing!");
+  console.log();
+});
+
+// Determines if banner should display based on environment
+function shouldShowBanner(): boolean {
+  if (process.env.CI) return false;
+  if (!process.stdout.isTTY) return false;
+  if (process.argv.includes("--no-banner")) return false;
+  return true;
+}
+
+// Print banner only for help/version commands
+async function printBannerIfAllowed(): Promise<void> {
+  if (shouldShowBanner()) {
+    await printBanner(process.argv);
+  }
+}
+
+// Main entry: parse arguments (banner handled by specific commands)
+async function main(): Promise<void> {
+  // If no command provided, show banner + help
+  const args = process.argv.slice(2);
+  if (args.length === 0 || (args.length === 1 && args[0] === "--no-banner")) {
+    await printBannerIfAllowed();
+    program.help();
+    return;
+  }
+
+  // Parse and execute commands
+  await program.parseAsync();
+}
+
+// Run CLI (only when this file is executed directly)
+main().catch((err) => {
+  console.error(error(`Unexpected error: ${err instanceof Error ? err.message : String(err)}`));
+  process.exit(1);
+});
