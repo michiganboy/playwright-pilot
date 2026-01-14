@@ -142,11 +142,8 @@ test.describe.serial("AUTH-101 - User Authentication @authentication", () => {
 - ✅ ADO Plan ID in `featureConfig.json`
 - ✅ ADO Suite ID in `featureConfig.json`
 - ✅ Test case ID in test title (e.g., `[10001]`)
-
-**Optional:**
-
-- Suite name in `describe` block (for readability, but tag is what matters)
-- Test description in title (after the ID)
+- ✅ Suite name in `describe` block
+- ✅ Test description in title (after the ID)
 
 ## Guidance for Engineers
 
