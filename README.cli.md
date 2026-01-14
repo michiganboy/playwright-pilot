@@ -2,6 +2,26 @@
 
 The Playwright Pilot CLI uses a **resource:verb** naming convention for all commands. This makes it clear what resource you're operating on and what action you're performing.
 
+## Running Commands
+
+After `npm install`, commands are available two ways:
+
+```bash
+# Via npm script (always works)
+npm run pilot feature:add
+
+# Direct command (requires build step first)
+pilot feature:add
+```
+
+To enable the direct `pilot` command, run the build step once:
+
+```bash
+npm run build:cli
+```
+
+Both syntaxes are equivalent after building. Examples in this guide use `npm run pilot` for consistency since it works immediately after install.
+
 ## Command Naming Convention
 
 All commands follow the pattern: `<resource>:<verb>`

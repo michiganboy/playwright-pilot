@@ -2,7 +2,9 @@
 
 Playwright Pilot is a Playwright-based automation framework with a first-class CLI designed to enforce consistency, traceability, and alignment with Azure DevOps Test Plans.
 
-The framework is built around features and suites, not ad-hoc test files. Everything maps cleanly back to Azure DevOps so automation reflects how tests are managed by QA and stakeholders.
+Inspired by classic Node CLI generators like express-generator, Pilot provides a structured, opinionated foundation for Playwright automation — establishing conventions early so teams can focus on writing meaningful tests instead of reinventing project structure.
+
+The framework is built around features and suites, not ad-hoc test files, and includes tooling to create, manage, and reuse rich test data in a consistent and traceable way. Everything maps cleanly back to Azure DevOps, ensuring automation reflects how tests are planned, executed, and reviewed by QA teams and stakeholders.
 
 ## Who It's For
 
@@ -60,7 +62,17 @@ This guide walks you through setting up Playwright Pilot from scratch.
 npm install
 ```
 
-### Step 2: Configure Environment
+### Step 2: Build CLI (Optional)
+
+To use the `pilot` command directly instead of `npm run pilot`:
+
+```bash
+npm run build:cli
+```
+
+This compiles the CLI for faster execution. Skip this step if you prefer using `npm run pilot`.
+
+### Step 3: Configure Environment (Optional)
 
 Create a `.env` file in the root directory:
 
@@ -121,7 +133,7 @@ PILOT_KEEP_RUNSTATE=false
 | `PILOT_SEED`                 | Auto-generated | Fixed seed for reproducible test data          |
 | `PILOT_KEEP_RUNSTATE`        | `false`        | Preserve runState.json between test runs       |
 
-### Step 3: Create Your First Feature
+### Step 4: Create Your First Feature
 
 Start with a foundational feature like "Login Page". **You must have your Azure DevOps test plan and suites created first.**
 
@@ -142,7 +154,7 @@ This creates:
 - One spec file per suite (e.g., `LOGI-101-user-login.spec.ts`)
 - A page object: `src/pages/login-page/LoginPage.ts`
 
-### Step 4: Implement the Login Page Object
+### Step 5: Implement the Login Page Object
 
 Open `src/pages/login-page/LoginPage.ts` and update it with your actual selectors and methods:
 
@@ -219,7 +231,7 @@ export class LoginPage {
 }
 ```
 
-### Step 5: Implement toLoginPilot() Adapter
+### Step 6: Implement toLoginPilot() Adapter
 
 The CLI generates a stubbed `toLoginPilot()` method for Login pages (shown in Step 4 above). Replace the `throw new Error()` in the `submit()` method with your actual implementation:
 
@@ -249,7 +261,7 @@ toLoginPilot() {
 
 This adapter enables `autoPilot.login()` to work across your entire test suite. See [README.login.md](./README.login.md) for details.
 
-### Step 6: Verify Fixtures Wiring
+### Step 7: Verify Fixtures Wiring
 
 The CLI automatically wires `LoginPage` into fixtures. This keeps tests clean by passing page objects through fixtures instead of requiring manual instantiation in each test.
 
@@ -317,7 +329,7 @@ loginPilot: async ({ myLoginPage }, use) => {
 
 This wiring enables tests to use `autoPilot.login()` without knowing login page details.
 
-### Step 7: Write Your First Test
+### Step 8: Write Your First Test
 
 Open the generated spec file (e.g., `tests/login-page/LOGI-101-user-login.spec.ts`) and implement your test:
 
@@ -365,7 +377,7 @@ test.describe.serial("LOGI-101 - User Login @login-page", () => {
 
 **Important:** Replace the test case ID (`[LOGI-10001]`) with your actual Azure DevOps test case ID.
 
-### Step 8: Run Tests
+### Step 9: Run Tests
 
 ```bash
 # Run all tests
@@ -378,14 +390,14 @@ npm test -- --grep @login-page
 npm run test:ui
 ```
 
-### Step 9: View Test Results
+### Step 10: View Test Results
 
 ```bash
 # Open Playwright HTML report
 npm run pilot trace:open
 ```
 
-### Step 10: Sync to Azure DevOps (Optional)
+### Step 11: Sync to Azure DevOps (Optional)
 
 After tests pass, sync results to Azure DevOps:
 
