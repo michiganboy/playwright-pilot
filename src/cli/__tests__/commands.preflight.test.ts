@@ -104,14 +104,9 @@ describe("CLI Commands - Preflight Tests", () => {
     // Reset executor to default
     resetChecklistExecutor();
     jest.clearAllMocks();
-
-    // Clean up any created log files
-    const logDir = join(REPO_ROOT, ".pilot", "preflight");
-    if (existsSync(logDir)) {
-      try {
-        rmSync(logDir, { recursive: true, force: true });
-      } catch { /* ignore cleanup errors */ }
-    }
+    // Note: We intentionally do NOT clean up .pilot/preflight here.
+    // Deleting that directory can corrupt log files from parent processes
+    // when these tests run as part of `pilot preflight`.
   });
 
   afterAll(() => {
