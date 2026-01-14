@@ -1,8 +1,9 @@
-// Global setup: seed initialization and run state clearing.
+// Global setup: seed initialization, run state clearing, and test factory creation.
 import { FullConfig } from "@playwright/test";
 import { promises as fs } from "fs";
 import path from "path";
 import { clearRunState } from "./src/utils/dataStore";
+import { createFactoryForTest, factoryExistsForTest } from "./src/cli/utils/factoryTestUtils";
 
 async function globalSetup(config: FullConfig) {
   // Ensure test-results directory exists
@@ -35,6 +36,15 @@ async function globalSetup(config: FullConfig) {
   (global as any).__PILOT_SEED_MODE__ = seedMode;
   (global as any).__PILOT_STARTED_AT__ = new Date().toISOString();
   (global as any).__PILOT_WORKERS__ = config.workers;
+
+  // Create User factory for TOOLS tests (idempotent - only creates if missing)
+  if (!factoryExistsForTest("user")) {
+    console.log("[PILOT] Creating User factory for TOOLS tests...");
+    await createFactoryForTest("user");
+    console.log("[PILOT] ✓ User factory created");
+    // Mark that we created it so teardown knows to clean up
+    (global as any).__PILOT_CREATED_USER_FACTORY__ = true;
+  }
 }
 
 export default globalSetup;

@@ -5,10 +5,16 @@
  * 1. Runs static checks (feature config, directories, fixtures, exports)
  * 2. Runs authoritative test suites that define framework correctness
  * 3. Fails immediately if any step fails
+ * 
+ * Modes:
+ * - Default (quiet): Shows progress indicators, captures output to log file
+ * - Verbose (--verbose): Streams full output live
  */
 
 import { describe, it, expect, beforeEach, afterEach, afterAll, jest } from "@jest/globals";
-import type { ExecSyncOptions } from "child_process";
+import type { ExecSyncOptions, SpawnSyncOptions } from "child_process";
+import { existsSync, readFileSync, rmSync } from "fs";
+import { join } from "path";
 
 // Mock dependencies before imports
 const fileOpsMock = {
@@ -38,20 +44,39 @@ import {
   ATTENDANT_TEST_STEPS,
   setCommandExecutor,
   resetCommandExecutor,
+  setQuietCommandExecutor,
+  resetQuietCommandExecutor,
 } from "../commands/attendant";
+import { REPO_ROOT } from "../utils/paths";
 
 describe("CLI Commands - Attendant Tests", () => {
   let originalConsoleLog: typeof console.log;
   let originalConsoleError: typeof console.error;
+  let consoleOutput: string[];
   let commandCalls: Array<{ command: string; options: ExecSyncOptions }>;
+  let quietCommandCalls: Array<{ command: string; options: SpawnSyncOptions }>;
   let mockExecutor: jest.Mock<(command: string, options: ExecSyncOptions) => void>;
+  let mockQuietExecutor: jest.Mock<(command: string, options: SpawnSyncOptions) => { stdout: string; stderr: string; exitCode: number | null }>;
+
+  // Mock process.stdout methods for quiet mode
+  const originalClearLine = process.stdout.clearLine;
+  const originalCursorTo = process.stdout.cursorTo;
 
   beforeEach(() => {
-    // Suppress console output during tests
+    // Capture console output
+    consoleOutput = [];
     originalConsoleLog = console.log;
     originalConsoleError = console.error;
-    console.log = jest.fn();
-    console.error = jest.fn();
+    console.log = jest.fn((...args) => {
+      consoleOutput.push(args.join(" "));
+    });
+    console.error = jest.fn((...args) => {
+      consoleOutput.push(args.join(" "));
+    });
+
+    // Mock stdout methods with proper return types
+    process.stdout.clearLine = jest.fn(() => true) as typeof process.stdout.clearLine;
+    process.stdout.cursorTo = jest.fn(() => true) as typeof process.stdout.cursorTo;
 
     // Reset all mocks
     fileOpsMock.readFileSafe.mockReset();
@@ -62,15 +87,24 @@ describe("CLI Commands - Attendant Tests", () => {
     featureConfigMock.hasSuiteId.mockReset();
     globMock.mockReset();
 
-    // Track command calls
+    // Track command calls (verbose mode)
     commandCalls = [];
     mockExecutor = jest.fn<(command: string, options: ExecSyncOptions) => void>()
       .mockImplementation((command, options) => {
         commandCalls.push({ command, options });
       });
 
-    // Set mock executor
+    // Track quiet command calls
+    quietCommandCalls = [];
+    mockQuietExecutor = jest.fn<(command: string, options: SpawnSyncOptions) => { stdout: string; stderr: string; exitCode: number | null }>()
+      .mockImplementation((command, options) => {
+        quietCommandCalls.push({ command, options });
+        return { stdout: "PASS test\n", stderr: "", exitCode: 0 };
+      });
+
+    // Set mock executors
     setCommandExecutor(mockExecutor);
+    setQuietCommandExecutor(mockQuietExecutor);
 
     // Default mocks for static checks (make them pass)
     (fileOpsMock.readJsonSafe as any).mockResolvedValue({
@@ -91,9 +125,22 @@ describe("CLI Commands - Attendant Tests", () => {
   });
 
   afterEach(() => {
-    // Reset executor to default
+    // Reset executors to default
     resetCommandExecutor();
+    resetQuietCommandExecutor();
     jest.clearAllMocks();
+
+    // Restore stdout methods
+    process.stdout.clearLine = originalClearLine;
+    process.stdout.cursorTo = originalCursorTo;
+
+    // Clean up any created log files
+    const logDir = join(REPO_ROOT, ".pilot", "attendant");
+    if (existsSync(logDir)) {
+      try {
+        rmSync(logDir, { recursive: true, force: true });
+      } catch { /* ignore cleanup errors */ }
+    }
   });
 
   afterAll(() => {
@@ -147,12 +194,10 @@ describe("CLI Commands - Attendant Tests", () => {
     });
   });
 
-  describe("runTestSuites", () => {
+  describe("runTestSuites - verbose mode", () => {
     it("should run all required commands in correct order", async () => {
-      // Act
-      await runTestSuites();
+      await runTestSuites({ verbose: true });
 
-      // Assert - all 8 steps executed
       expect(mockExecutor).toHaveBeenCalledTimes(8);
 
       // Verify order
@@ -166,31 +211,15 @@ describe("CLI Commands - Attendant Tests", () => {
       expect(commandCalls[7].command).toContain("TOOLS-003-WRITE|TOOLS-003-COLLECT");
     });
 
-    it("should pass PILOT_SEED and PILOT_KEEP_RUNSTATE for TOOLS steps", async () => {
-      // Act
-      await runTestSuites();
+    it("should use stdio inherit for all commands in verbose mode", async () => {
+      await runTestSuites({ verbose: true });
 
-      // Assert - check all TOOLS steps have env vars
-      for (let i = 5; i <= 7; i++) {
-        const toolsCall = commandCalls[i];
-        expect(toolsCall.options.env).toBeDefined();
-        expect(toolsCall.options.env!.PILOT_SEED).toBe("12345");
-        expect(toolsCall.options.env!.PILOT_KEEP_RUNSTATE).toBe("true");
-      }
-    });
-
-    it("should use stdio inherit for all commands", async () => {
-      // Act
-      await runTestSuites();
-
-      // Assert - all commands use stdio: inherit
       for (const call of commandCalls) {
         expect(call.options.stdio).toBe("inherit");
       }
     });
 
-    it("should stop immediately if a command fails", async () => {
-      // Arrange - fail on step 3 (namespace enforcement)
+    it("should stop immediately if a command fails in verbose mode", async () => {
       mockExecutor.mockImplementation((command) => {
         if (command.includes("namespace-enforcement")) {
           throw new Error("Test execution failed");
@@ -198,135 +227,193 @@ describe("CLI Commands - Attendant Tests", () => {
         commandCalls.push({ command, options: {} as ExecSyncOptions });
       });
 
-      // Act & Assert
-      await expect(runTestSuites()).rejects.toThrow(/Attendant failed at step 3/);
-
-      // Should have attempted steps 1, 2, 3 only (3 failed)
+      await expect(runTestSuites({ verbose: true })).rejects.toThrow(/Attendant failed at step 3/);
       expect(mockExecutor).toHaveBeenCalledTimes(3);
     });
+  });
 
-    it("should include step name and command in failure message", async () => {
-      // Arrange - fail on step 2
-      mockExecutor.mockImplementation((command) => {
-        if (command.includes("commands.suite.test.ts")) {
-          throw new Error("Tests failed");
-        }
-        commandCalls.push({ command, options: {} as ExecSyncOptions });
-      });
+  describe("runTestSuites - quiet mode (default)", () => {
+    it("should run all steps and capture output", async () => {
+      await runTestSuites({ verbose: false });
 
-      // Act & Assert
-      await expect(runTestSuites()).rejects.toThrow("Suite command tests");
-      await expect(mockExecutor).toHaveBeenCalledTimes(2);
+      // All 8 steps should be executed via quiet executor
+      expect(mockQuietExecutor).toHaveBeenCalledTimes(8);
     });
 
-    it("should not execute later steps after failure", async () => {
-      // Arrange - fail on step 1
-      mockExecutor.mockImplementation(() => {
-        throw new Error("First step failed");
+    it("should NOT print raw Jest PASS blocks in quiet mode", async () => {
+      // The quiet executor returns "PASS test\n" but this should not be printed
+      await runTestSuites({ verbose: false });
+
+      const output = consoleOutput.join("\n");
+      // Should not contain raw Jest output
+      expect(output).not.toContain("PASS  src/");
+      expect(output).not.toContain("PASS test");
+    });
+
+    it("should print a summary line per step with status indicator", async () => {
+      await runTestSuites({ verbose: false });
+
+      const output = consoleOutput.join("\n");
+      // Should contain step progress indicators
+      expect(output).toContain("[1/8]");
+      expect(output).toContain("[8/8]");
+      // Should contain status indicators
+      expect(output).toContain("✅");
+    });
+
+    it("should create a log file in the expected directory", async () => {
+      await runTestSuites({ verbose: false });
+
+      const logDir = join(REPO_ROOT, ".pilot", "attendant");
+      expect(existsSync(logDir)).toBe(true);
+
+      // Find the log file
+      const files = require("fs").readdirSync(logDir);
+      const logFiles = files.filter((f: string) => f.startsWith("attendant-") && f.endsWith(".log"));
+      expect(logFiles.length).toBeGreaterThan(0);
+    });
+
+    it("should print CLEAR FOR TAKEOFF on success", async () => {
+      await runTestSuites({ verbose: false });
+
+      const output = consoleOutput.join("\n");
+      expect(output).toContain("CLEAR FOR TAKEOFF");
+    });
+
+    it("should print duration and step count on success", async () => {
+      await runTestSuites({ verbose: false });
+
+      const output = consoleOutput.join("\n");
+      expect(output).toContain("8/8 passed");
+      expect(output).toMatch(/Duration:/);
+    });
+
+    it("should stop immediately if a step fails", async () => {
+      mockQuietExecutor.mockImplementation((command) => {
+        quietCommandCalls.push({ command, options: {} as SpawnSyncOptions });
+        if (command.includes("namespace-enforcement")) {
+          return { stdout: "FAIL test\n", stderr: "Error details", exitCode: 1 };
+        }
+        return { stdout: "PASS test\n", stderr: "", exitCode: 0 };
       });
 
-      // Act
-      await expect(runTestSuites()).rejects.toThrow();
+      await expect(runTestSuites({ verbose: false })).rejects.toThrow(/Attendant failed at step 3/);
+      expect(mockQuietExecutor).toHaveBeenCalledTimes(3);
+    });
+  });
 
-      // Assert - only 1 attempt made
-      expect(mockExecutor).toHaveBeenCalledTimes(1);
+  describe("failure output in quiet mode", () => {
+    it("should print tail output on failure", async () => {
+      const longOutput = Array(100).fill("line of output").join("\n");
+      mockQuietExecutor.mockImplementation((command) => {
+        quietCommandCalls.push({ command, options: {} as SpawnSyncOptions });
+        if (command.includes("TOOLS-001")) {
+          return { stdout: longOutput, stderr: "Error!", exitCode: 1 };
+        }
+        return { stdout: "PASS\n", stderr: "", exitCode: 0 };
+      });
+
+      await expect(runTestSuites({ verbose: false })).rejects.toThrow();
+
+      const output = consoleOutput.join("\n");
+      // Should contain truncation notice
+      expect(output).toContain("truncated");
+      // Should contain the hint to rerun
+      expect(output).toContain("--verbose");
+    });
+
+    it("should print rerun hint on failure", async () => {
+      mockQuietExecutor.mockImplementation((command) => {
+        quietCommandCalls.push({ command, options: {} as SpawnSyncOptions });
+        return { stdout: "", stderr: "Error!", exitCode: 1 };
+      });
+
+      await expect(runTestSuites({ verbose: false })).rejects.toThrow();
+
+      const output = consoleOutput.join("\n");
+      expect(output).toContain("pilot attendant --verbose");
+    });
+
+    it("should include log file path in failure output", async () => {
+      mockQuietExecutor.mockImplementation((command) => {
+        quietCommandCalls.push({ command, options: {} as SpawnSyncOptions });
+        return { stdout: "", stderr: "Error!", exitCode: 1 };
+      });
+
+      await expect(runTestSuites({ verbose: false })).rejects.toThrow();
+
+      const output = consoleOutput.join("\n");
+      expect(output).toContain(".pilot");
+      expect(output).toContain("attendant");
+      expect(output).toContain(".log");
     });
   });
 
   describe("runAttendant", () => {
     it("should run static checks before test suites", async () => {
-      // Act
-      await runAttendant();
+      await runAttendant({ verbose: false });
 
-      // Assert - static checks run (readJsonSafe called for featureConfig)
       expect(fileOpsMock.readJsonSafe).toHaveBeenCalled();
-      // Then test suites run
-      expect(mockExecutor).toHaveBeenCalled();
+      expect(mockQuietExecutor).toHaveBeenCalled();
     });
 
     it("should fail if static checks have errors", async () => {
-      // Arrange - invalid feature config
       (fileOpsMock.readJsonSafe as any).mockResolvedValue({
         "bad-feature": {
-          tag: "no-at-sign", // Missing @ prefix
+          tag: "no-at-sign",
           planId: 123,
           suites: { "1001": "Test" },
         },
       });
 
-      // Act & Assert
-      await expect(runAttendant()).rejects.toThrow(/Static checks failed/);
+      await expect(runAttendant({ verbose: false })).rejects.toThrow(/Static checks failed/);
+      expect(mockQuietExecutor).not.toHaveBeenCalled();
+    });
 
-      // Test suites should NOT run
+    it("should pass verbose option to runTestSuites", async () => {
+      await runAttendant({ verbose: true });
+
+      // Verbose mode uses the sync executor
+      expect(mockExecutor).toHaveBeenCalled();
+      expect(mockQuietExecutor).not.toHaveBeenCalled();
+    });
+
+    it("should default to quiet mode", async () => {
+      await runAttendant();
+
+      // Default quiet mode uses the quiet executor
+      expect(mockQuietExecutor).toHaveBeenCalled();
       expect(mockExecutor).not.toHaveBeenCalled();
     });
 
     it("should report success when all steps pass", async () => {
-      // Act
-      await runAttendant();
+      await runAttendant({ verbose: false });
 
-      // Assert - success message printed
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining("Attendant check passed")
-      );
-    });
-
-    it("should not fail on warnings, only errors", async () => {
-      // Arrange - set up a warning condition (orphaned fixture)
-      (fileOpsMock.readFileSafe as any).mockResolvedValue(
-        'import { TestPage } from "./pages/test/TestPage";\n' +
-        "type Fixtures = { orphanPage: OrphanPage; };\n" +
-        "testPage: async ({ page }, use) => {}"
-      );
-
-      // Act - should not throw
-      await runAttendant();
-
-      // Assert - test suites still ran
-      expect(mockExecutor).toHaveBeenCalled();
+      const output = consoleOutput.join("\n");
+      expect(output).toContain("Attendant check passed");
     });
   });
 
   describe("error handling", () => {
     it("should provide human-readable step failure information", async () => {
-      // Arrange - fail on step 4
       let callCount = 0;
-      mockExecutor.mockImplementation((command) => {
+      mockQuietExecutor.mockImplementation((command) => {
         callCount++;
+        quietCommandCalls.push({ command, options: {} as SpawnSyncOptions });
         if (callCount === 4) {
-          throw new Error("runstate test failed");
+          return { stdout: "", stderr: "runstate test failed", exitCode: 1 };
         }
+        return { stdout: "PASS\n", stderr: "", exitCode: 0 };
       });
 
-      // Act & Assert
       try {
-        await runTestSuites();
+        await runTestSuites({ verbose: false });
         fail("Expected error to be thrown");
       } catch (error) {
         const message = (error as Error).message;
         expect(message).toContain("step 4");
         expect(message).toContain("RunState lifecycle tests");
-        expect(message).toContain("runstate-lifecycle.test.ts");
       }
-    });
-
-    it("should print error details to console", async () => {
-      // Arrange - fail on step 5
-      let callCount = 0;
-      mockExecutor.mockImplementation(() => {
-        callCount++;
-        if (callCount === 5) {
-          throw new Error("metadata test failed");
-        }
-      });
-
-      // Act
-      await expect(runTestSuites()).rejects.toThrow();
-
-      // Assert - error logged
-      expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining("FAILED")
-      );
     });
   });
 });

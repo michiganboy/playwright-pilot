@@ -5,7 +5,26 @@ import { paths, REPO_ROOT } from "../utils/paths";
 import { getSuiteIds, hasSuiteId } from "../../utils/featureConfig";
 import { glob } from "fast-glob";
 import path from "path";
-import { execSync, type ExecSyncOptions } from "child_process";
+import { execSync, spawnSync, type ExecSyncOptions, type SpawnSyncOptions } from "child_process";
+import {
+  createLogFilePath,
+  writeLogHeader,
+  writeStepHeader,
+  appendToLog,
+  writeStepResult,
+  writeLogFooter,
+  tailOutput,
+  formatDuration,
+  formatStepProgress,
+  formatStepResult,
+} from "../utils/attendantLogger";
+
+/**
+ * Attendant options.
+ */
+export interface AttendantOptions {
+  verbose?: boolean;
+}
 
 /**
  * Test suite step definition for the health gate.
@@ -14,6 +33,19 @@ export interface TestStep {
   name: string;
   command: string;
   env?: Record<string, string>;
+}
+
+/**
+ * Step execution result.
+ */
+export interface StepResult {
+  stepNumber: number;
+  stepName: string;
+  command: string;
+  passed: boolean;
+  durationMs: number;
+  output: string;
+  exitCode: number | null;
 }
 
 /**
@@ -81,11 +113,56 @@ export function resetCommandExecutor(): void {
   };
 }
 
+/**
+ * Quiet executor that captures output - can be overridden for testing.
+ */
+export let quietCommandExecutor = (command: string, options: SpawnSyncOptions): { stdout: string; stderr: string; exitCode: number | null } => {
+  const isWindows = process.platform === "win32";
+  const shell = isWindows ? true : "/bin/sh";
+  const result = spawnSync(command, [], {
+    ...options,
+    shell,
+    encoding: "utf-8",
+  });
+  return {
+    stdout: result.stdout?.toString() || "",
+    stderr: result.stderr?.toString() || "",
+    exitCode: result.status,
+  };
+};
+
+/**
+ * Sets the quiet command executor (for testing).
+ */
+export function setQuietCommandExecutor(executor: (command: string, options: SpawnSyncOptions) => { stdout: string; stderr: string; exitCode: number | null }): void {
+  quietCommandExecutor = executor;
+}
+
+/**
+ * Resets the quiet command executor to default (for testing cleanup).
+ */
+export function resetQuietCommandExecutor(): void {
+  quietCommandExecutor = (command: string, options: SpawnSyncOptions): { stdout: string; stderr: string; exitCode: number | null } => {
+    const isWindows = process.platform === "win32";
+    const shell = isWindows ? true : "/bin/sh";
+    const result = spawnSync(command, [], {
+      ...options,
+      shell,
+      encoding: "utf-8",
+    });
+    return {
+      stdout: result.stdout?.toString() || "",
+      stderr: result.stderr?.toString() || "",
+      exitCode: result.status,
+    };
+  };
+}
+
 interface FeatureConfig {
   [key: string]: {
     tag: string;
     planId: number;
-    suites: Record<string, string>; // Suite ID (as string) -> Suite Name
+    suites: Record<string, string>;
   };
 }
 
@@ -97,7 +174,8 @@ interface HealthCheckResult {
 /**
  * Runs health checks on the framework structure.
  */
-export async function runAttendant(): Promise<void> {
+export async function runAttendant(options: AttendantOptions = {}): Promise<void> {
+  const { verbose = false } = options;
   const results: HealthCheckResult[] = [];
 
   console.log("🔍 Running health checks...\n");
@@ -106,19 +184,10 @@ export async function runAttendant(): Promise<void> {
   // PHASE 1: Static checks (feature config, directories, fixtures, exports)
   // ─────────────────────────────────────────────────────────────────
 
-  // Check featureConfig.json
   await checkFeatureConfig(results);
-
-  // Check test directories
   await checkTestDirectories(results);
-
-  // Check page fixtures
   await checkPageFixtures(results);
-
-  // Check factory exports
   await checkFactoryExports(results);
-
-  // Check spec imports
   await checkSpecImports(results);
 
   // Print static check results
@@ -150,7 +219,6 @@ export async function runAttendant(): Promise<void> {
     console.log("✅ All static checks passed!\n");
   } else {
     console.log(`Summary: ${errors.length} error(s), ${warnings.length} warning(s)\n`);
-    // Don't fail on warnings, but fail on errors
     if (errors.length > 0) {
       throw new Error(`Static checks failed with ${errors.length} error(s)`);
     }
@@ -162,7 +230,7 @@ export async function runAttendant(): Promise<void> {
 
   console.log("🧪 Running authoritative test suites...\n");
 
-  await runTestSuites();
+  await runTestSuites({ verbose });
 
   // ─────────────────────────────────────────────────────────────────
   // SUCCESS: All checks passed
@@ -173,9 +241,23 @@ export async function runAttendant(): Promise<void> {
 
 /**
  * Runs the authoritative test suites sequentially.
- * Stops immediately if any step fails.
+ * In verbose mode: streams output live.
+ * In quiet mode: captures output and shows progress indicators.
  */
-export async function runTestSuites(): Promise<void> {
+export async function runTestSuites(options: AttendantOptions = {}): Promise<void> {
+  const { verbose = false } = options;
+
+  if (verbose) {
+    await runTestSuitesVerbose();
+  } else {
+    await runTestSuitesQuiet();
+  }
+}
+
+/**
+ * Verbose mode: streams output live (original behavior).
+ */
+async function runTestSuitesVerbose(): Promise<void> {
   for (let i = 0; i < ATTENDANT_TEST_STEPS.length; i++) {
     const step = ATTENDANT_TEST_STEPS[i];
     const stepNumber = i + 1;
@@ -201,6 +283,135 @@ export async function runTestSuites(): Promise<void> {
       throw new Error(`Attendant failed at step ${stepNumber}: ${step.name}\nCommand: ${step.command}`);
     }
   }
+}
+
+/**
+ * Quiet mode: captures output and shows clean progress.
+ */
+async function runTestSuitesQuiet(): Promise<void> {
+  const logPath = createLogFilePath();
+  writeLogHeader(logPath);
+
+  const totalSteps = ATTENDANT_TEST_STEPS.length;
+  const stepResults: StepResult[] = [];
+  const overallStart = Date.now();
+
+  console.log(`  Log file: ${logPath}\n`);
+  console.log("─".repeat(70));
+
+  for (let i = 0; i < totalSteps; i++) {
+    const step = ATTENDANT_TEST_STEPS[i];
+    const stepNumber = i + 1;
+
+    // Log step header
+    writeStepHeader(logPath, stepNumber, totalSteps, step.name, step.command);
+
+    const stepStart = Date.now();
+    let result: StepResult;
+
+    try {
+      const spawnOptions: SpawnSyncOptions = {
+        cwd: REPO_ROOT,
+        env: step.env ? { ...process.env, ...step.env } : process.env,
+      };
+
+      const execResult = quietCommandExecutor(step.command, spawnOptions);
+      const durationMs = Date.now() - stepStart;
+      const output = execResult.stdout + execResult.stderr;
+
+      // Log output
+      appendToLog(logPath, output);
+
+      const passed = execResult.exitCode === 0;
+      result = {
+        stepNumber,
+        stepName: step.name,
+        command: step.command,
+        passed,
+        durationMs,
+        output,
+        exitCode: execResult.exitCode,
+      };
+
+      writeStepResult(logPath, stepNumber, step.name, passed, durationMs);
+
+      // Show result
+      console.log(`  ${formatStepResult(stepNumber, totalSteps, step.name, passed, durationMs)}`);
+
+      if (!passed) {
+        stepResults.push(result);
+        printFailureSummary(result, logPath);
+        throw new Error(`Attendant failed at step ${stepNumber}: ${step.name}`);
+      }
+
+      stepResults.push(result);
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith("Attendant failed")) {
+        throw error;
+      }
+      // Unexpected error during execution
+      const durationMs = Date.now() - stepStart;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+
+      console.log(`  ${formatStepResult(stepNumber, totalSteps, step.name, false, durationMs)}`);
+
+      result = {
+        stepNumber,
+        stepName: step.name,
+        command: step.command,
+        passed: false,
+        durationMs,
+        output: errorMsg,
+        exitCode: null,
+      };
+      stepResults.push(result);
+      appendToLog(logPath, `\nError: ${errorMsg}\n`);
+      writeStepResult(logPath, stepNumber, step.name, false, durationMs);
+
+      printFailureSummary(result, logPath);
+      throw new Error(`Attendant failed at step ${stepNumber}: ${step.name}\nCommand: ${step.command}`);
+    }
+  }
+
+  // All steps passed
+  const totalDuration = Date.now() - overallStart;
+  const passed = stepResults.filter((r) => r.passed).length;
+  const failed = stepResults.filter((r) => !r.passed).length;
+
+  writeLogFooter(logPath, passed, failed, totalDuration);
+
+  console.log("─".repeat(70));
+  console.log();
+  console.log("  ✈️  CLEAR FOR TAKEOFF");
+  console.log();
+  console.log(`  Steps:    ${passed}/${totalSteps} passed`);
+  console.log(`  Duration: ${formatDuration(totalDuration)}`);
+  console.log(`  Log:      ${logPath}`);
+  console.log();
+}
+
+/**
+ * Prints failure summary with tail output and rerun hint.
+ */
+function printFailureSummary(result: StepResult, logPath: string): void {
+  console.log();
+  console.log("─".repeat(70));
+  console.log("  ❌ STEP FAILED");
+  console.log("─".repeat(70));
+  console.log();
+  console.log(`  Step:     ${result.stepNumber} - ${result.stepName}`);
+  console.log(`  Command:  ${result.command}`);
+  console.log(`  Exit:     ${result.exitCode ?? "N/A"}`);
+  console.log(`  Duration: ${formatDuration(result.durationMs)}`);
+  console.log();
+  console.log("  Last 60 lines of output:");
+  console.log("─".repeat(70));
+  console.log(tailOutput(result.output, 60));
+  console.log("─".repeat(70));
+  console.log();
+  console.log(`  💡 Rerun with --verbose for full output: pilot attendant --verbose`);
+  console.log(`  📄 Full log: ${logPath}`);
+  console.log();
 }
 
 /**
@@ -270,7 +481,6 @@ async function checkPageFixtures(results: HealthCheckResult[]): Promise<void> {
     return;
   }
 
-  // Find all page directories
   const pageDirs = await glob("src/pages/*", { cwd: REPO_ROOT, onlyDirectories: true });
   const pageFiles = await glob("src/pages/*/*Page.ts", { cwd: REPO_ROOT });
 
@@ -278,13 +488,10 @@ async function checkPageFixtures(results: HealthCheckResult[]): Promise<void> {
     const parts = pageFile.split("/");
     const featureKey = parts[2];
     const pageFileName = parts[3];
-    // Extract PageName from filename (e.g., "AppointmentPage.ts" -> "AppointmentPage")
     const PageName = pageFileName.replace(".ts", "");
-    // Extract base name for fixture (e.g., "AppointmentPage" -> "appointmentPage")
     const baseName = PageName.replace("Page", "");
     const fixtureName = baseName.charAt(0).toLowerCase() + baseName.slice(1) + "Page";
 
-    // Check import (flexible matching - just check if the page class is imported)
     if (!fixturesContent.includes(PageName)) {
       results.push({
         type: "error",
@@ -292,7 +499,6 @@ async function checkPageFixtures(results: HealthCheckResult[]): Promise<void> {
       });
     }
 
-    // Check type entry
     if (!fixturesContent.includes(`${fixtureName}:`)) {
       results.push({
         type: "error",
@@ -300,7 +506,6 @@ async function checkPageFixtures(results: HealthCheckResult[]): Promise<void> {
       });
     }
 
-    // Check extend entry
     if (!fixturesContent.includes(`${fixtureName}: async`)) {
       results.push({
         type: "error",
@@ -309,7 +514,6 @@ async function checkPageFixtures(results: HealthCheckResult[]): Promise<void> {
     }
   }
 
-  // Check for orphaned fixtures (wired but page doesn't exist)
   const fixtureMatches = Array.from(fixturesContent.matchAll(/^\s+(\w+Page):\s+(\w+Page);/gm));
   for (const match of fixtureMatches) {
     const fixtureName = match[1];
@@ -338,17 +542,14 @@ async function checkFactoryExports(results: HealthCheckResult[]): Promise<void> 
     return;
   }
 
-  // Find all factory files
   const factoryFiles = await glob("src/testdata/factories/*.factory.ts", { cwd: REPO_ROOT });
   const exportedFactories = new Set<string>();
 
-  // Extract exports from index (handle both single and double quotes)
   const exportMatches = Array.from(indexContent.matchAll(/export \* from ['"]\.\/(\w+)\.factory['"];/g));
   for (const match of exportMatches) {
     exportedFactories.add(match[1]);
   }
 
-  // Check each factory is exported
   for (const factoryFile of factoryFiles) {
     const factoryName = path.basename(factoryFile, ".factory.ts");
     if (!exportedFactories.has(factoryName)) {
@@ -359,7 +560,6 @@ async function checkFactoryExports(results: HealthCheckResult[]): Promise<void> 
     }
   }
 
-  // Check for stale exports
   for (const exported of Array.from(exportedFactories)) {
     const factoryFile = factoryFiles.find((f) => f.includes(`${exported}.factory.ts`));
     if (!factoryFile) {
@@ -373,14 +573,11 @@ async function checkFactoryExports(results: HealthCheckResult[]): Promise<void> 
 
 /**
  * Checks spec file imports.
- * Note: tests/tools/ specs are excluded - they are framework internals tests
- * that don't require the standard imports.
  */
 async function checkSpecImports(results: HealthCheckResult[]): Promise<void> {
   const specFiles = await glob("tests/**/*.spec.ts", { cwd: REPO_ROOT });
 
   for (const specFile of specFiles) {
-    // Skip /tools/ specs - they are framework internals tests
     if (specFile.includes("/tools/") || specFile.includes("\\tools\\")) {
       continue;
     }
@@ -388,7 +585,6 @@ async function checkSpecImports(results: HealthCheckResult[]): Promise<void> {
     const content = await readFileSafe(path.join(REPO_ROOT, specFile));
     if (!content) continue;
 
-    // Check for required imports
     if (!content.includes('from "../../fixtures/test-fixtures"') && !content.includes('from "../fixtures/test-fixtures"')) {
       results.push({
         type: "warning",
