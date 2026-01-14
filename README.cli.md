@@ -29,7 +29,8 @@ Examples:
 | `factory:add [name]`    | Create data factory, builder, and model (if needed)        | `[name]` - Model name (prompts if omitted)   | -                                                                |
 | `factory:delete [name]` | Delete factory and remove export                           | `[name]` - Factory name (prompts if omitted) | -                                                                |
 | `trace:open`            | Open Playwright HTML report in browser                     | -                                            | -                                                                |
-| `attendant`             | Run health gate (static checks + test suites)              | -                                            | -                                                                |
+| `preflight`             | Run preflight check (inspections + checklist verification) | -                                            | -                                                                |
+| `takeoff`               | Execute the resolved test plan                             | -                                            | `--suites <s>` - Comma-separated suite list<br>`--workers <n>` - Parallel workers<br>`--seed <s>` - Test data seed |
 | `help`                  | Show help information                                      | -                                            | -                                                                |
 
 ## Interactive Mode
@@ -420,54 +421,101 @@ npm run pilot factory:delete "Product"
 - Requires typed confirmation: `delete factory <normalized-name>`
 - Removes the factory file and export from `factories/index.ts`
 
-## Health Gate (Attendant)
+## Preflight Check
 
-The `attendant` command is a **health gate** that validates framework correctness. If attendant passes, the repo is in a known-good state.
+The `preflight` command validates framework readiness before test execution. If preflight passes, you are cleared for takeoff.
 
 ```bash
-# Run health gate
-npm run pilot attendant
+# Run preflight check
+npm run pilot preflight
 ```
 
-**Phase 1: Static Checks**
+**Inspections**
 
-- ✅ Validates `featureConfig.json` entries have required fields (tag, planId, suites)
-- ✅ Validates test directories exist for each feature
-- ✅ Validates pages in `src/pages` are properly wired in `test-fixtures.ts`
-- ⚠️ Warns about orphaned fixtures (wired but page doesn't exist)
-- ✅ Validates each `*.factory.ts` is exported in `factories/index.ts`
-- ⚠️ Warns about stale exports (exported but factory file doesn't exist)
-- ⚠️ Warns about suite files missing required imports (excludes `tests/tools/`)
+- Validates `featureConfig.json` entries have required fields (tag, planId, suites)
+- Validates test directories exist for each feature
+- Validates pages in `src/pages` are properly wired in `test-fixtures.ts`
+- Validates each `*.factory.ts` is exported in `factories/index.ts`
 
-**Phase 2: Authoritative Test Suites**
+**Checklist**
 
-After static checks pass, attendant runs the following test suites sequentially:
+After inspections pass, preflight runs the verification checklist:
 
-1. **Full CLI + unit suite** - All Jest tests
-2. **Suite command tests** - `commands.suite.test.ts`
-3. **Namespace enforcement tests** - `namespace-enforcement.test.ts`
-4. **RunState lifecycle tests** - `runstate-lifecycle.test.ts`
-5. **Last-run metadata tests** - `last-run-metadata.test.ts`
-6. **TOOLS-001 user defaults** - Playwright factory tools validation
-7. **TOOLS-002 tools surface** - Playwright tools API validation
-8. **TOOLS-003 parallel determinism** - Multi-worker collision detection (4 workers)
+1. **CLI and unit integrity** - All Jest tests
+2. **Suite command verification** - `commands.suite.test.ts`
+3. **Namespace enforcement** - `namespace-enforcement.test.ts`
+4. **RunState lifecycle** - `runstate-lifecycle.test.ts`
+5. **Last-run metadata** - `last-run-metadata.test.ts`
+6. **TOOLS defaults** - Playwright factory tools validation
+7. **TOOLS surface** - Playwright tools API validation
+8. **Parallel determinism and collision stress** - Multi-worker collision detection (4 workers)
 
 **Behavior:**
 
-- If **any step fails**: Attendant stops immediately, exits non-zero, and reports which step failed
-- If **all steps pass**: Prints success summary
+- If **any item fails**: Preflight stops immediately, exits non-zero, prints `NOT CLEARED FOR TAKEOFF`
+- If **all items pass**: Prints `CLEAR FOR TAKEOFF`
 
 **Example Output (Success):**
 
 ```
-✅ Attendant check passed: CLI, testdata, utils, and TOOLS validated.
+PILOT PREFLIGHT
+----------------------------------------------------------------------
+Items:      8/8 verified
+Duration:   12s
+Flight log: .pilot/preflight/preflight-2026-01-14T12-00-00-000Z.log
+
+CLEAR FOR TAKEOFF
 ```
 
 **Example Output (Failure):**
 
 ```
-❌ Step 3 "Namespace enforcement tests" failed
-   Command: npm run test:cli -- --runInBand --verbose src/testdata/__tests__/namespace-enforcement.test.ts
+ITEM FAILED
+----------------------------------------------------------------------
+Item:     3 - Namespace enforcement
+Command:  npm run test:cli -- --runInBand --verbose src/testdata/__tests__/namespace-enforcement.test.ts
+
+NOT CLEARED FOR TAKEOFF
+```
+
+## Takeoff
+
+The `takeoff` command executes the resolved test plan.
+
+```bash
+# Execute all tests
+npm run pilot takeoff
+
+# Execute specific suites
+npm run pilot takeoff --suites smoke,regression
+
+# Execute with specific worker count and seed
+npm run pilot takeoff --workers 4 --seed 12345
+```
+
+**Options:**
+
+- `--suites <list>` - Comma-separated list of suite tags to run (default: all)
+- `--workers <n>` - Number of parallel workers (default: 4)
+- `--seed <s>` - Seed for deterministic test data
+
+**Example Output:**
+
+```
+PILOT TAKEOFF
+----------------------------------------------------------------------
+Executing flight plan
+
+Suites:     all
+Workers:    4
+Seed:       91342
+
+[1/1]  all             PASS   45s
+----------------------------------------------------------------------
+
+Status:     PASSED
+Duration:   45s
+Flight log: .pilot/preflight/takeoff-2026-01-14T12-00-00-000Z.log
 ```
 
 ## Opening Traces

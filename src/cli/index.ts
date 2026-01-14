@@ -6,7 +6,8 @@ import { addFeature, deleteFeature } from "./commands/feature";
 import { addSpec, deleteSpec } from "./commands/spec";
 import { addFactory, deleteFactory } from "./commands/factory";
 import { addSystemEntry, deleteSystemEntry } from "./commands/system";
-import { runAttendant } from "./commands/attendant";
+import { runPreflight } from "./commands/preflight";
+import { runTakeoff } from "./commands/takeoff";
 import { openReport } from "./commands/trace";
 import { printBanner } from "./theme/banner";
 
@@ -189,13 +190,35 @@ program
   });
 
 program
-  .command("attendant")
-  .description("Run health checks on framework structure (read-only)")
-  .option("--verbose", "Stream full test output to console (default: quiet mode)")
-  .action(async (options: { verbose?: boolean }) => {
+  .command("preflight")
+  .description("Run preflight check to verify framework readiness")
+  .action(async () => {
     await printBannerIfAllowed();
     try {
-      await runAttendant({ verbose: options.verbose ?? false });
+      const cleared = await runPreflight();
+      if (!cleared) {
+        process.exit(1);
+      }
+    } catch (err) {
+      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command("takeoff")
+  .description("Execute the resolved test plan")
+  .option("-s, --suites <suites>", "Comma-separated list of suites to run (default: all)")
+  .option("-w, --workers <workers>", "Number of parallel workers (default: 4)")
+  .option("--seed <seed>", "Seed for deterministic test data")
+  .action(async (options: { suites?: string; workers?: string; seed?: string }) => {
+    try {
+      const suites = options.suites ? options.suites.split(",").map(s => s.trim()) : ["all"];
+      const workers = options.workers ? parseInt(options.workers, 10) : 4;
+      const passed = await runTakeoff({ suites, workers, seed: options.seed });
+      if (!passed) {
+        process.exit(1);
+      }
     } catch (err) {
       console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exit(1);

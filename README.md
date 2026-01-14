@@ -399,7 +399,8 @@ npm run sync:ado
 - **Create additional features**: `npm run pilot feature:add "User Management"`
 - **Create shared page objects**: `npm run pilot page:add "Dashboard"`
 - **Create test data factories**: `npm run pilot factory:add "User"`
-- **Run health checks**: `npm run pilot attendant`
+- **Run preflight check**: `npm run pilot preflight`
+- **Execute tests**: `npm run pilot takeoff`
 
 ## Documentation
 
