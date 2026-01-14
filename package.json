@@ -11,7 +11,7 @@
     "test:cli:watch": "jest --watch",
     "sync:ado": "tsx --env-file=.env src/integrations/azureDevops/index.ts",
     "pilot": "tsx src/cli/index.ts",
-    "build:cli": "npx esbuild src/cli/index.ts --bundle --platform=node --outfile=dist/src/cli/index.js --packages=external --format=cjs && node -e \"require('fs').mkdirSync('dist/src/cli/theme',{recursive:true})\" && node -e \"require('fs').copyFileSync('src/cli/theme/plane.txt','dist/src/cli/theme/plane.txt')\""
+    "build:cli": "npx esbuild src/cli/index.ts --bundle --platform=node --outfile=dist/src/cli/index.js --packages=external --format=cjs && node -e \"require('fs').copyFileSync('src/cli/theme/plane.txt','dist/src/cli/plane.txt')\""
   },
   "bin": {
     "pilot": "./dist/src/cli/index.js"
