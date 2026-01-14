@@ -109,7 +109,7 @@ import * as factories from "../../../src/testdata/factories";
 import type * as models from "../../../src/testdata/models";
 
 test.describe.serial("USER-101 - User Management @user-management", () => {
-  test("[USER-10001] Create and use test data", async ({ page, userManagementPage, set, get }) => {
+  test("[10001] Create and use test data", async ({ page, userManagementPage, set, get }) => {
     // Create test data
     const user = factories.createUser();
     await set("test.user", user);
@@ -132,7 +132,7 @@ test.describe.serial("USER-101 - User Management @user-management", () => {
     });
   });
 
-  test("[USER-10002] Use data from previous test", async ({ page, get }) => {
+  test("[10002] Use data from previous test", async ({ page, get }) => {
     // This test can access data created in the previous test (same run)
     const userData = await get<models.User>("test.user");
     if (userData) {
@@ -288,7 +288,7 @@ import * as factories from "../../../src/testdata/factories";
 import type * as models from "../../../src/testdata/models";
 
 test.describe.serial("APPT-101 - Appointments @appointments", () => {
-  test("[APPT-10001] Create appointment with user data", async ({ page, appointmentPage, set, get }) => {
+  test("[10001] Create appointment with user data", async ({ page, appointmentPage, set, get }) => {
     // Create user (test-owned data)
     const user = factories.createUser();
     await set("test.user", user);

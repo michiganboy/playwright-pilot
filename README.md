@@ -356,7 +356,7 @@ import * as factories from "../../src/testdata/factories";
 // ---
 
 test.describe.serial("LOGI-101 - User Login @login-page", () => {
-  test("[LOGI-10001] Login with valid credentials", async ({ page, autoPilot, set, get }) => {
+  test("[10001] Login with valid credentials", async ({ page, autoPilot, set, get }) => {
     await test.step("Login to application", async () => {
       await autoPilot.login();
     });
@@ -368,7 +368,7 @@ test.describe.serial("LOGI-101 - User Login @login-page", () => {
     });
   });
 
-  test("[LOGI-10002] invalid password", async ({ loginPage }) => {
+  test("[10002] invalid password", async ({ loginPage }) => {
     const pilot = loginPage.toLoginPilot();
 
     await test.step("Attempt login with invalid password", async () => {
@@ -385,7 +385,7 @@ test.describe.serial("LOGI-101 - User Login @login-page", () => {
 });
 ```
 
-**Important:** Replace the test case ID (`[LOGI-10001]`) with your actual Azure DevOps test case ID.
+**Important:** Replace the test case ID (`[10001]`) with your actual Azure DevOps test case ID.
 
 ### Step 9: Run Tests
 

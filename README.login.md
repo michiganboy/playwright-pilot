@@ -187,7 +187,7 @@ export class LoginPage {
 import { test, expect } from "../../fixtures/test-fixtures";
 
 test.describe.serial("DASH-101 - Dashboard @dashboard", () => {
-  test("[DASH-10001] User can view dashboard after login", async ({ page, autoPilot }) => {
+  test("[10001] User can view dashboard after login", async ({ page, autoPilot }) => {
     // Login using AutoPilot (works across all features)
     await test.step("Login to application", async () => {
       await autoPilot.login();
@@ -204,7 +204,7 @@ test.describe.serial("DASH-101 - Dashboard @dashboard", () => {
 ### With Custom Credentials
 
 ```typescript
-test("[DASH-10002] Admin can view admin dashboard", async ({ page, autoPilot }) => {
+test("[10002] Admin can view admin dashboard", async ({ page, autoPilot }) => {
   // Login with custom credentials
   await autoPilot.login("admin@example.com", "admin123");
 
@@ -248,7 +248,7 @@ await autoPilot.login();
 import { test, expect } from "../../fixtures/test-fixtures";
 
 test.describe.serial("LOGI-101 - User Login @login-page", () => {
-  test("[LOGI-10001] User cannot login with invalid password", async ({ page, loginPilot }) => {
+  test("[10001] User cannot login with invalid password", async ({ page, loginPilot }) => {
     // Use loginPilot directly for login-specific testing
     await test.step("Navigate to login page", async () => {
       await loginPilot.goto();
@@ -271,7 +271,7 @@ test.describe.serial("LOGI-101 - User Login @login-page", () => {
 import { test, expect } from "../../fixtures/test-fixtures";
 
 test.describe.serial("DASH-101 - Dashboard @dashboard", () => {
-  test("[DASH-10001] User can view dashboard", async ({ page, autoPilot }) => {
+  test("[10001] User can view dashboard", async ({ page, autoPilot }) => {
     // Use autoPilot for cross-feature workflows
     await autoPilot.login();
 

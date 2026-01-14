@@ -6,11 +6,11 @@ Playwright Pilot is designed around Azure DevOps Test Plans. The framework's str
 
 The framework maps ADO concepts to code structure:
 
-| Azure DevOps | Framework | Implementation |
-|-------------|-----------|---------------|
-| **Test Plan** | **Feature** | Defined in `src/testdata/featureConfig.json` |
-| **Test Suite** | **Suite** | One spec file per suite |
-| **Test Case** | **Test** | Individual `test()` blocks |
+| Azure DevOps   | Framework   | Implementation                               |
+| -------------- | ----------- | -------------------------------------------- |
+| **Test Plan**  | **Feature** | Defined in `src/testdata/featureConfig.json` |
+| **Test Suite** | **Suite**   | One spec file per suite                      |
+| **Test Case**  | **Test**    | Individual `test()` blocks                   |
 
 ### Feature ↔ ADO Test Plan
 
@@ -60,12 +60,12 @@ test.describe.serial("AUTH-101 - User Authentication @authentication", () => {
 - **Each `test()` block represents one Azure DevOps test case**
 - Test case IDs appear in test titles
 - Format: `[<TEST-CASE-ID>] <Test Description>`
-- Example: `[AUTH-10001] User can log in with valid credentials`
+- Example: `[10001] User can log in with valid credentials`
 
 **Test Structure:**
 
 ```typescript
-test("[AUTH-10001] User can log in with valid credentials", async ({ page, autoPilot }) => {
+test("[10001] User can log in with valid credentials", async ({ page, autoPilot }) => {
   // Test implementation
 });
 ```
@@ -85,19 +85,21 @@ This mapping provides:
 ### Where ADO IDs Go
 
 1. **Feature Configuration** (`src/testdata/featureConfig.json`):
+
    ```json
    {
      "authentication": {
        "tag": "@authentication",
-       "planId": 2,  // ← ADO Plan ID
+       "planId": 2, // ← ADO Plan ID
        "suites": {
-         "7": "User Authentication"  // ← Suite ID: Suite Name
+         "7": "User Authentication" // ← Suite ID: Suite Name
        }
      }
    }
    ```
 
 2. **Suite Files** (header comment):
+
    ```typescript
    // ---
    // Tests for User Authentication
@@ -110,7 +112,7 @@ This mapping provides:
 
 3. **Test Titles**:
    ```typescript
-   test("[AUTH-10001] User can log in with valid credentials", async ({ page }) => {
+   test("[10001] User can log in with valid credentials", async ({ page }) => {
      // Test implementation
    });
    ```
@@ -122,11 +124,11 @@ Each `test.describe.serial()` block represents one suite:
 ```typescript
 // This describe block = Suite "User Authentication" (ADO Suite ID: 7)
 test.describe.serial("AUTH-101 - User Authentication @authentication", () => {
-  test("[AUTH-10001] User can log in with valid credentials", async ({ page }) => {
+  test("[10001] User can log in with valid credentials", async ({ page }) => {
     // Test case 1
   });
 
-  test("[AUTH-10002] User cannot log in with invalid password", async ({ page }) => {
+  test("[10002] User cannot log in with invalid password", async ({ page }) => {
     // Test case 2
   });
 });
@@ -135,12 +137,14 @@ test.describe.serial("AUTH-101 - User Authentication @authentication", () => {
 ### What Is Required vs Optional
 
 **Required:**
+
 - ✅ Feature tag in `describe` block (e.g., `@authentication`)
 - ✅ ADO Plan ID in `featureConfig.json`
 - ✅ ADO Suite ID in `featureConfig.json`
-- ✅ Test case ID in test title (e.g., `[AUTH-10001]`)
+- ✅ Test case ID in test title (e.g., `[10001]`)
 
 **Optional:**
+
 - Suite name in `describe` block (for readability, but tag is what matters)
 - Test description in title (after the ID)
 
@@ -175,7 +179,7 @@ test.describe.serial("AUTH-101 - User Authentication @authentication", () => {
 2. **Get Test Case ID** (work item ID from ADO)
 3. **Write test with ID in title:**
    ```typescript
-   test("[AUTH-10001] User can log in with valid credentials", async ({ page }) => {
+   test("[10001] User can log in with valid credentials", async ({ page }) => {
      // Implementation
    });
    ```
@@ -183,17 +187,20 @@ test.describe.serial("AUTH-101 - User Authentication @authentication", () => {
 ### Finding ADO IDs
 
 **Test Plan ID:**
+
 - Navigate to your test plan in Azure DevOps
 - The Plan ID appears in the URL: `.../testPlans/105/...`
 - Or view the test plan details page
 
 **Suite ID:**
+
 - Open your test plan in ADO
 - Click on a suite to view its details
 - The Suite ID appears in the URL: `.../testPlans/105/suites/5001/...`
 - Or view the suite details page
 
 **Test Case ID:**
+
 - Open a test case work item in ADO
 - The Test Case ID is the work item ID (e.g., `AUTH-9` or numeric ID)
 - Appears in the work item title or URL
@@ -225,6 +232,7 @@ ADO_AUTO_SYNC=true
 ```
 
 The sync process:
+
 1. Reads Playwright test results
 2. Matches tests to ADO test cases using IDs in titles
 3. Updates test case results in ADO
