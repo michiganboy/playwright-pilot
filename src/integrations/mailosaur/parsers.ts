@@ -1,8 +1,16 @@
 // Mailosaur message parsing utilities.
-import type { NormalizedMessage } from "./types";
+import type { NormalizedMessage, Attachment } from "./types";
 import { OTP_PATTERNS, LINK_PATTERN, LINK_EXCLUDE_PATTERNS } from "./parsingRules";
 
 // Type for raw Mailosaur message from SDK.
+interface MailosaurAttachment {
+  id: string;
+  fileName: string;
+  contentType: string;
+  length: number;
+  contentId?: string;
+}
+
 interface MailosaurMessage {
   id: string;
   subject?: string;
@@ -11,6 +19,7 @@ interface MailosaurMessage {
   received?: string;
   text?: { body?: string; codes?: Array<{ value: string }> };
   html?: { body?: string; links?: Array<{ href: string }> };
+  attachments?: MailosaurAttachment[];
 }
 
 // Normalizes a raw Mailosaur message to NormalizedMessage format.
@@ -38,6 +47,15 @@ export function normalizeMessage(mailosaurMessage: MailosaurMessage): Normalized
     );
   }
 
+  // Parse attachments
+  const attachments: Attachment[] = (mailosaurMessage.attachments || []).map((a) => ({
+    id: a.id,
+    fileName: a.fileName,
+    contentType: a.contentType,
+    length: a.length,
+    contentId: a.contentId,
+  }));
+
   return {
     id: mailosaurMessage.id,
     subject: mailosaurMessage.subject,
@@ -48,6 +66,7 @@ export function normalizeMessage(mailosaurMessage: MailosaurMessage): Normalized
     htmlBody: htmlBody || undefined,
     links,
     codes,
+    attachments,
   };
 }
 

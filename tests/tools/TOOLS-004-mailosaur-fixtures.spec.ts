@@ -1,5 +1,11 @@
 import { test, expect } from "../fixtures/test-fixtures";
-import type { NormalizedMessage, OtpResult } from "../../src/integrations/mailosaur/types";
+import type {
+  NormalizedMessage,
+  OtpResult,
+  Attachment,
+  SpamAnalysisResult,
+  DeliverabilityReport,
+} from "../../src/integrations/mailosaur/types";
 import { normalizeMessage, extractCodes, extractLinks } from "../../src/integrations/mailosaur/parsers";
 
 // ---
@@ -11,12 +17,14 @@ import { normalizeMessage, extractCodes, extractLinks } from "../../src/integrat
 // ---
 
 test.describe("TOOLS-004 - Mailosaur Fixtures Health Check @tools @mailosaur", () => {
-  test("mailosaur fixtures are present on test context", async ({ mail, otp, links, mailCleanup }) => {
+  test("mailosaur fixtures are present on test context", async ({ mail, otp, links, mailCleanup, mailAttachments, mailAnalysis }) => {
     // Verify all mailosaur fixtures are available
     expect(mail).toBeDefined();
     expect(otp).toBeDefined();
     expect(links).toBeDefined();
     expect(mailCleanup).toBeDefined();
+    expect(mailAttachments).toBeDefined();
+    expect(mailAnalysis).toBeDefined();
 
     // Verify fixture methods exist
     expect(typeof mail.waitForMessage).toBe("function");
@@ -25,17 +33,26 @@ test.describe("TOOLS-004 - Mailosaur Fixtures Health Check @tools @mailosaur", (
     expect(typeof links.waitForLink).toBe("function");
     expect(typeof mailCleanup.deleteMessage).toBe("function");
     expect(typeof mailCleanup.clearServer).toBe("function");
+    expect(typeof mailAttachments.list).toBe("function");
+    expect(typeof mailAttachments.download).toBe("function");
+    expect(typeof mailAttachments.getWithContent).toBe("function");
+    expect(typeof mailAttachments.downloadAll).toBe("function");
+    expect(typeof mailAnalysis.analyzeSpam).toBe("function");
+    expect(typeof mailAnalysis.analyzeDeliverability).toBe("function");
+    expect(typeof mailAnalysis.getPreviewUrl).toBe("function");
 
     console.log("[TOOLS-004] Mailosaur fixtures verified:", {
       mail: Object.keys(mail),
       otp: Object.keys(otp),
       links: Object.keys(links),
       mailCleanup: Object.keys(mailCleanup),
+      mailAttachments: Object.keys(mailAttachments),
+      mailAnalysis: Object.keys(mailAnalysis),
     });
   });
 
   test("normalizeMessage parses raw Mailosaur message correctly", async () => {
-    // Mock raw Mailosaur message structure
+    // Mock raw Mailosaur message structure with attachments
     const rawMessage = {
       id: "msg-123",
       subject: "Your verification code",
@@ -50,6 +67,21 @@ test.describe("TOOLS-004 - Mailosaur Fixtures Health Check @tools @mailosaur", (
         body: "<p>Your code is <strong>123456</strong>.</p>",
         links: [{ href: "https://example.com/verify?token=abc" }],
       },
+      attachments: [
+        {
+          id: "attach-001",
+          fileName: "invoice.pdf",
+          contentType: "application/pdf",
+          length: 12345,
+        },
+        {
+          id: "attach-002",
+          fileName: "logo.png",
+          contentType: "image/png",
+          length: 5678,
+          contentId: "logo@example.com",
+        },
+      ],
     };
 
     const normalized = normalizeMessage(rawMessage);
@@ -67,6 +99,13 @@ test.describe("TOOLS-004 - Mailosaur Fixtures Health Check @tools @mailosaur", (
 
     // Verify links extracted from SDK-provided links
     expect(normalized.links).toContain("https://example.com/verify?token=abc");
+
+    // Verify attachments are parsed
+    expect(normalized.attachments).toHaveLength(2);
+    expect(normalized.attachments[0].fileName).toBe("invoice.pdf");
+    expect(normalized.attachments[0].contentType).toBe("application/pdf");
+    expect(normalized.attachments[1].fileName).toBe("logo.png");
+    expect(normalized.attachments[1].contentId).toBe("logo@example.com");
 
     console.log("[TOOLS-004] Normalized message:", JSON.stringify(normalized, null, 2));
   });
@@ -92,6 +131,7 @@ test.describe("TOOLS-004 - Mailosaur Fixtures Health Check @tools @mailosaur", (
       textBody: "Your one-time code is 987654. Enter this code to continue.",
       codes: [], // Empty - no SDK codes
       links: [],
+      attachments: [],
     };
 
     const codes = extractCodes(message);
@@ -109,6 +149,7 @@ test.describe("TOOLS-004 - Mailosaur Fixtures Health Check @tools @mailosaur", (
       textBody: "Your code is 111111 or maybe 222222.",
       codes: ["333333"], // Pre-extracted by SDK
       links: [],
+      attachments: [],
     };
 
     const codes = extractCodes(message);
@@ -127,6 +168,7 @@ test.describe("TOOLS-004 - Mailosaur Fixtures Health Check @tools @mailosaur", (
       htmlBody: '<a href="https://example.com/reset?id=123">Reset password</a>',
       codes: [],
       links: [], // Empty - no SDK links
+      attachments: [],
     };
 
     const links = extractLinks(message);
@@ -148,6 +190,7 @@ test.describe("TOOLS-004 - Mailosaur Fixtures Health Check @tools @mailosaur", (
       `,
       codes: [],
       links: [],
+      attachments: [],
     };
 
     const links = extractLinks(message);
@@ -463,5 +506,118 @@ test.describe("TOOLS-004 - Mailosaur Fixtures Health Check @tools @mailosaur", (
     );
 
     console.log("[TOOLS-004] Non-mailosaur provider throws on resolveChannel");
+  });
+
+  test("SpamAnalysisResult type structure is correct", async () => {
+    // Mock spam analysis result
+    const spamResult: SpamAnalysisResult = {
+      score: 2.3,
+      result: "Pass",
+      rules: [
+        { rule: "HTML_IMAGE_RATIO", score: 0.8, description: "HTML has low text to image ratio" },
+        { rule: "MIME_HTML_ONLY", score: 0.1, description: "Message only has HTML MIME parts" },
+      ],
+    };
+
+    expect(spamResult.score).toBe(2.3);
+    expect(spamResult.result).toBe("Pass");
+    expect(spamResult.rules).toHaveLength(2);
+    expect(spamResult.rules[0].rule).toBe("HTML_IMAGE_RATIO");
+    expect(spamResult.rules[0].score).toBe(0.8);
+    expect(spamResult.rules[0].description).toBe("HTML has low text to image ratio");
+
+    // Verify result enum values
+    const passResult: SpamAnalysisResult = { score: 1.0, result: "Pass", rules: [] };
+    const warnResult: SpamAnalysisResult = { score: 4.0, result: "Warning", rules: [] };
+    const failResult: SpamAnalysisResult = { score: 8.0, result: "Fail", rules: [] };
+
+    expect(passResult.result).toBe("Pass");
+    expect(warnResult.result).toBe("Warning");
+    expect(failResult.result).toBe("Fail");
+
+    console.log("[TOOLS-004] SpamAnalysisResult type structure verified");
+  });
+
+  test("DeliverabilityReport type structure is correct", async () => {
+    // Mock deliverability report
+    const report: DeliverabilityReport = {
+      spf: {
+        result: "Pass",
+        description: "Sender IP authorized by domain's SPF record",
+      },
+      dkim: {
+        result: "Pass",
+        description: "Valid DKIM signature found",
+        signingDomain: "salesforce.com",
+      },
+      dmarc: {
+        result: "Pass",
+        description: "Message aligns with domain's DMARC policy",
+        policy: "reject",
+      },
+    };
+
+    expect(report.spf.result).toBe("Pass");
+    expect(report.spf.description).toContain("SPF");
+    expect(report.dkim.result).toBe("Pass");
+    expect(report.dkim.signingDomain).toBe("salesforce.com");
+    expect(report.dmarc.result).toBe("Pass");
+    expect(report.dmarc.policy).toBe("reject");
+
+    // Test failure scenarios
+    const failedReport: DeliverabilityReport = {
+      spf: { result: "Fail", description: "Sender IP not authorized" },
+      dkim: { result: "Fail", description: "DKIM signature invalid" },
+      dmarc: { result: "Fail", description: "DMARC policy failed", policy: "quarantine" },
+    };
+
+    expect(failedReport.spf.result).toBe("Fail");
+    expect(failedReport.dkim.result).toBe("Fail");
+    expect(failedReport.dmarc.result).toBe("Fail");
+
+    console.log("[TOOLS-004] DeliverabilityReport type structure verified");
+  });
+
+  test("Attachment type structure is correct", async () => {
+    // Mock attachment
+    const attachment: Attachment = {
+      id: "attach-123",
+      fileName: "invoice.pdf",
+      contentType: "application/pdf",
+      length: 102400, // 100KB
+    };
+
+    expect(attachment.id).toBe("attach-123");
+    expect(attachment.fileName).toBe("invoice.pdf");
+    expect(attachment.contentType).toBe("application/pdf");
+    expect(attachment.length).toBe(102400);
+
+    // Inline attachment (with contentId)
+    const inlineAttachment: Attachment = {
+      id: "attach-456",
+      fileName: "header.png",
+      contentType: "image/png",
+      length: 5120,
+      contentId: "header-image@company.com",
+    };
+
+    expect(inlineAttachment.contentId).toBe("header-image@company.com");
+
+    console.log("[TOOLS-004] Attachment type structure verified");
+  });
+
+  test("normalizeMessage handles message without attachments", async () => {
+    const rawMessage = {
+      id: "msg-no-attach",
+      subject: "Simple email",
+      received: "2024-01-15T10:30:00Z",
+      text: { body: "Hello world" },
+      // No attachments field
+    };
+
+    const normalized = normalizeMessage(rawMessage);
+
+    expect(normalized.attachments).toEqual([]);
+    console.log("[TOOLS-004] Message without attachments handled correctly");
   });
 });

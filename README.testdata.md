@@ -67,9 +67,6 @@ The test data system consists of:
 ### Setting Data
 
 ```typescript
-import { test } from "../../fixtures/test-fixtures";
-import * as factories from "../../../src/testdata/factories";
-
 test("Example test", async ({ set }) => {
   // Create and store test data (persists to src/testdata/runState.json)
   const user = factories.createUser();
@@ -84,9 +81,6 @@ test("Example test", async ({ set }) => {
 ### Getting Data
 
 ```typescript
-import { test } from "../../fixtures/test-fixtures";
-import type * as models from "../../../src/testdata/models";
-
 test("Example test", async ({ get, page }) => {
   // Get test data (reads from src/testdata/runState.json)
   const user = await get<models.User>("test.user");
@@ -149,9 +143,7 @@ test.describe.serial("USER-101 - User Management @user-management", () => {
 ### System Values via Fixtures
 
 ```typescript
-import { test } from "../../fixtures/test-fixtures";
-
-test("Example test", async ({ systemValues }) => {
+test("Example test", async ({ page, systemValues }) => {
   // System values are pre-loaded and available
   const adminUser = systemValues["system.salesforce.users.admin"];
   
@@ -315,8 +307,6 @@ test.describe.serial("APPT-101 - Appointments @appointments", () => {
 ### Using System Values
 
 ```typescript
-import { test } from "../../fixtures/test-fixtures";
-
 test("Login with system user", async ({ page, autoPilot, systemValues }) => {
   // System values are pre-loaded via fixtures
   const adminUser = systemValues["system.salesforce.users.admin"] as { email: string };

@@ -3,7 +3,15 @@ import { test as base, expect } from "@playwright/test";
 import { AutoPilot, type LoginPilot } from "../../src/utils/autoPilot";
 import { dataStoreFixtures } from "./dataStore";
 import { systemFixtures } from "./system";
-import { mailosaurFixtures, type MailFixture, type OtpFixture, type LinksFixture, type MailCleanupFixture } from "./mailosaur-fixtures";
+import {
+  mailosaurFixtures,
+  type MailFixture,
+  type OtpFixture,
+  type LinksFixture,
+  type MailCleanupFixture,
+  type MailAttachmentsFixture,
+  type MailAnalysisFixture,
+} from "./mailosaur-fixtures";
 import { setTestContext, clearTestContext } from "../../src/testdata/tools/context";
 import type { set as setFn, get as getFn } from "../../src/utils/dataStore";
 import type { MfaHelper } from "../../src/integrations/mailosaur/types";
@@ -19,6 +27,8 @@ type Fixtures = {
   otp: OtpFixture;
   links: LinksFixture;
   mailCleanup: MailCleanupFixture;
+  mailAttachments: MailAttachmentsFixture;
+  mailAnalysis: MailAnalysisFixture;
 };
 
 // Lazily creates MFA helper only when Mailosaur env vars are configured.

@@ -1,6 +1,17 @@
 // Mailosaur client wrapper for message retrieval.
 // Requires: npm install mailosaur
-import type { NormalizedMessage, MessageCriteria, OtpResult, MfaHelper, SystemUser } from "./types";
+import type {
+  NormalizedMessage,
+  MessageCriteria,
+  OtpResult,
+  MfaHelper,
+  SystemUser,
+  SpamAnalysisResult,
+  DeliverabilityReport,
+  Attachment,
+  AttachmentWithContent,
+  EmailPreview,
+} from "./types";
 import { normalizeMessage, extractCodes } from "./parsers";
 
 // Environment variable names (exact as specified).
@@ -11,6 +22,14 @@ const ENV_TIMEOUT_MS = "MAILOSAUR_TIMEOUT_MS";
 const DEFAULT_TIMEOUT_MS = 30000;
 
 // Mailosaur SDK types (minimal interface for what we use).
+interface MailosaurSdkAttachment {
+  id: string;
+  fileName: string;
+  contentType: string;
+  length: number;
+  contentId?: string;
+}
+
 interface MailosaurSdkMessage {
   id: string;
   subject?: string;
@@ -19,14 +38,35 @@ interface MailosaurSdkMessage {
   received?: string;
   text?: { body?: string; codes?: Array<{ value: string }> };
   html?: { body?: string; links?: Array<{ href: string }> };
+  attachments?: MailosaurSdkAttachment[];
+}
+
+interface MailosaurSdkSpamResult {
+  score: number;
+  result: string;
+  rules: Array<{ rule: string; score: number; description: string }>;
+}
+
+interface MailosaurSdkDeliverabilityResult {
+  spf: { result: string; description: string };
+  dkim: Array<{ result: string; description: string; signingDomain?: string }>;
+  dmarc: { result: string; description: string; policy?: string };
 }
 
 interface MailosaurSdkClient {
   messages: {
     get(serverId: string, criteria: { sentTo: string }, options?: { timeout?: number }): Promise<MailosaurSdkMessage>;
+    getById(id: string): Promise<MailosaurSdkMessage>;
     list(serverId: string, options?: { page?: number; itemsPerPage?: number }): Promise<{ items: MailosaurSdkMessage[] }>;
     del(id: string): Promise<void>;
     deleteAll(serverId: string): Promise<void>;
+  };
+  analysis: {
+    spam(messageId: string): Promise<MailosaurSdkSpamResult>;
+    deliverability(messageId: string): Promise<MailosaurSdkDeliverabilityResult>;
+  };
+  files: {
+    getAttachment(attachmentId: string): Promise<Buffer>;
   };
 }
 
@@ -140,6 +180,105 @@ export class MailosaurClient {
   async deleteAllMessagesForServer(): Promise<void> {
     const client = await this.getClient();
     await client.messages.deleteAll(this.config.serverId);
+  }
+
+  // --- Spam Analysis ---
+
+  // Analyzes a message for spam characteristics using SpamAssassin.
+  async analyzeSpam(messageId: string): Promise<SpamAnalysisResult> {
+    const client = await this.getClient();
+    const result = await client.analysis.spam(messageId);
+
+    return {
+      score: result.score ?? 0,
+      result: (result.result as "Pass" | "Warning" | "Fail") || "Pass",
+      rules: (result.rules || []).map((r) => ({
+        rule: r.rule,
+        score: r.score,
+        description: r.description,
+      })),
+    };
+  }
+
+  // --- Email Deliverability ---
+
+  // Checks email authentication (SPF, DKIM, DMARC).
+  async analyzeDeliverability(messageId: string): Promise<DeliverabilityReport> {
+    const client = await this.getClient();
+    const result = await client.analysis.deliverability(messageId);
+
+    // DKIM can have multiple signatures; use the first one
+    const dkimResult = result.dkim?.[0] || { result: "None", description: "No DKIM signature found" };
+
+    return {
+      spf: {
+        result: result.spf.result as DeliverabilityReport["spf"]["result"],
+        description: result.spf.description,
+      },
+      dkim: {
+        result: dkimResult.result as DeliverabilityReport["dkim"]["result"],
+        description: dkimResult.description,
+        signingDomain: dkimResult.signingDomain,
+      },
+      dmarc: {
+        result: result.dmarc.result as DeliverabilityReport["dmarc"]["result"],
+        description: result.dmarc.description,
+        policy: result.dmarc.policy as DeliverabilityReport["dmarc"]["policy"],
+      },
+    };
+  }
+
+  // --- Attachments ---
+
+  // Gets attachment metadata from a message.
+  getAttachmentsFromMessage(message: NormalizedMessage): Attachment[] {
+    return message.attachments || [];
+  }
+
+  // Downloads attachment content by ID.
+  async downloadAttachment(attachmentId: string): Promise<Buffer> {
+    const client = await this.getClient();
+    return client.files.getAttachment(attachmentId);
+  }
+
+  // Downloads attachment with full metadata.
+  async getAttachmentWithContent(attachment: Attachment): Promise<AttachmentWithContent> {
+    const content = await this.downloadAttachment(attachment.id);
+    return {
+      ...attachment,
+      content,
+    };
+  }
+
+  // Downloads all attachments from a message.
+  async downloadAllAttachments(message: NormalizedMessage): Promise<AttachmentWithContent[]> {
+    const attachments = this.getAttachmentsFromMessage(message);
+    const results: AttachmentWithContent[] = [];
+
+    for (const attachment of attachments) {
+      const withContent = await this.getAttachmentWithContent(attachment);
+      results.push(withContent);
+    }
+
+    return results;
+  }
+
+  // --- Email Preview ---
+
+  // Gets a browser-viewable preview URL for an email.
+  getPreviewUrl(messageId: string): EmailPreview {
+    // Mailosaur preview URL format
+    return {
+      messageId,
+      previewUrl: `https://mailosaur.com/dashboard/messages/${messageId}`,
+    };
+  }
+
+  // Gets message by ID (useful for retrieving full details).
+  async getMessageById(messageId: string): Promise<NormalizedMessage> {
+    const client = await this.getClient();
+    const message = await client.messages.getById(messageId);
+    return normalizeMessage(message);
   }
 }
 

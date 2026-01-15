@@ -1,4 +1,4 @@
-// Mailosaur fixtures: mail, otp, links, mailCleanup, mailAttachments.
+// Mailosaur fixtures: mail, otp, links, mailCleanup, mailAttachments, mailAnalysis.
 // Spread into test-fixtures.ts to enable Mailosaur integration.
 import type { TestInfo } from "@playwright/test";
 import type {
@@ -8,6 +8,11 @@ import type {
   LinkSearchOptions,
   SystemUser,
   MfaConfig,
+  SpamAnalysisResult,
+  DeliverabilityReport,
+  Attachment,
+  AttachmentWithContent,
+  EmailPreview,
 } from "../../src/integrations/mailosaur/types";
 import { MailosaurClient, createMfaHelper } from "../../src/integrations/mailosaur/MailosaurClient";
 
@@ -84,16 +89,32 @@ export interface LinksFixture {
   waitForLink(userOrRecipient: string | SystemUser, options: LinkSearchOptions): Promise<string>;
 }
 
-// Mail cleanup fixture interface (optional).
+// Mail cleanup fixture interface.
 export interface MailCleanupFixture {
   deleteMessage(messageId: string): Promise<void>;
   clearServer(): Promise<void>;
 }
 
-// Mail attachments fixture interface (future).
+// Mail attachments fixture interface.
 export interface MailAttachmentsFixture {
-  // Future: list(messageId: string): Promise<Attachment[]>;
-  // Future: get(messageId: string, attachmentIndex: number): Promise<Buffer>;
+  // Lists attachments from a message.
+  list(message: NormalizedMessage): Attachment[];
+  // Downloads an attachment by ID.
+  download(attachmentId: string): Promise<Buffer>;
+  // Downloads an attachment with full metadata.
+  getWithContent(attachment: Attachment): Promise<AttachmentWithContent>;
+  // Downloads all attachments from a message.
+  downloadAll(message: NormalizedMessage): Promise<AttachmentWithContent[]>;
+}
+
+// Mail analysis fixture interface (spam and deliverability).
+export interface MailAnalysisFixture {
+  // Analyzes message for spam characteristics.
+  analyzeSpam(messageId: string): Promise<SpamAnalysisResult>;
+  // Checks email authentication (SPF, DKIM, DMARC).
+  analyzeDeliverability(messageId: string): Promise<DeliverabilityReport>;
+  // Gets a browser-viewable preview URL.
+  getPreviewUrl(messageId: string): EmailPreview;
 }
 
 // Lazy client factory to defer initialization until fixture is used.
@@ -192,7 +213,7 @@ function createLinksFixture(mail: MailFixture): LinksFixture {
   };
 }
 
-// Creates the mail cleanup fixture (optional).
+// Creates the mail cleanup fixture.
 function createMailCleanupFixture(): MailCleanupFixture {
   return {
     async deleteMessage(messageId: string): Promise<void> {
@@ -203,6 +224,51 @@ function createMailCleanupFixture(): MailCleanupFixture {
     async clearServer(): Promise<void> {
       const client = getClient();
       await client.deleteAllMessagesForServer();
+    },
+  };
+}
+
+// Creates the mail attachments fixture.
+function createMailAttachmentsFixture(): MailAttachmentsFixture {
+  return {
+    list(message: NormalizedMessage): Attachment[] {
+      const client = getClient();
+      return client.getAttachmentsFromMessage(message);
+    },
+
+    async download(attachmentId: string): Promise<Buffer> {
+      const client = getClient();
+      return client.downloadAttachment(attachmentId);
+    },
+
+    async getWithContent(attachment: Attachment): Promise<AttachmentWithContent> {
+      const client = getClient();
+      return client.getAttachmentWithContent(attachment);
+    },
+
+    async downloadAll(message: NormalizedMessage): Promise<AttachmentWithContent[]> {
+      const client = getClient();
+      return client.downloadAllAttachments(message);
+    },
+  };
+}
+
+// Creates the mail analysis fixture.
+function createMailAnalysisFixture(): MailAnalysisFixture {
+  return {
+    async analyzeSpam(messageId: string): Promise<SpamAnalysisResult> {
+      const client = getClient();
+      return client.analyzeSpam(messageId);
+    },
+
+    async analyzeDeliverability(messageId: string): Promise<DeliverabilityReport> {
+      const client = getClient();
+      return client.analyzeDeliverability(messageId);
+    },
+
+    getPreviewUrl(messageId: string): EmailPreview {
+      const client = getClient();
+      return client.getPreviewUrl(messageId);
     },
   };
 }
@@ -232,7 +298,25 @@ export const mailosaurFixtures = {
   mailCleanup: async ({}, use: (value: MailCleanupFixture) => Promise<void>, _testInfo: TestInfo) => {
     await use(createMailCleanupFixture());
   },
+
+  mailAttachments: async ({}, use: (value: MailAttachmentsFixture) => Promise<void>, _testInfo: TestInfo) => {
+    await use(createMailAttachmentsFixture());
+  },
+
+  mailAnalysis: async ({}, use: (value: MailAnalysisFixture) => Promise<void>, _testInfo: TestInfo) => {
+    await use(createMailAnalysisFixture());
+  },
 };
 
 // Type exports for test authors.
-export type { NormalizedMessage, OtpResult, LinkSearchOptions, MessageCriteria };
+export type {
+  NormalizedMessage,
+  OtpResult,
+  LinkSearchOptions,
+  MessageCriteria,
+  SpamAnalysisResult,
+  DeliverabilityReport,
+  Attachment,
+  AttachmentWithContent,
+  EmailPreview,
+};

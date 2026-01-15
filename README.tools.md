@@ -236,6 +236,11 @@ const masked = tools.str.mask("1234567890", 4); // "1234******"
 Power tools for advanced factory usage.
 
 ```typescript
+import { createTools } from "../testdata/tools";
+
+// Create tools instance (done per-builder)
+const tools = createTools("user");
+
 // Post-build hook (runs after object is built)
 const userBuilder = build<UserModel>({
   fields: { /* ... */ },
@@ -257,7 +262,8 @@ const merged = tools.override.merge(base, overrides);
 
 // Override pick (single-field generator override) - typically used inside builders
 // Example: Conditionally generating a field based on another field
-const user = tools.override.pick(
+const baseUser = { id: "1", email: "old@example.com", role: "member" };
+const updatedUser = tools.override.pick(
   baseUser,
   "email",
   () => tools.person.email("admin.com")
