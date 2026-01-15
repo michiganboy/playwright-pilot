@@ -29,6 +29,7 @@ Playwright Pilot is designed for:
 - **CLI Scaffolding** - Resource-scoped commands (`feature:add`, `page:add`, `spec:add`, `factory:add`, `trace:open`) automate framework setup
 - **Page Objects + Fixtures** - Automatic wiring of page objects into Playwright fixtures
 - **AutoPilot Workflows** - Cross-application actions like `autoPilot.login()` that work across features
+- **Mailosaur Integration** - Invisible MFA automation, email content validation, spam analysis, and deliverability testing (see [README.mailosaur.md](./README.mailosaur.md))
 - **ADO Test Plan Mapping** - Features map to test plans, suites to test suites, tests to test cases (see [README.ado.md](./README.ado.md))
 - **Test Data System** - Models, builders (mimicry-js), factories, and split dataStore (system._ → canonical, test._ → runtime) (see [README.testdata.md](./README.testdata.md), [README.tools.md](./README.tools.md), and [README.builders.md](./README.builders.md))
 - **Trace Capture + ADO Attachments** - Automatic trace recording and configurable artifact uploads to Azure DevOps (see [README.artifacts.md](./README.artifacts.md))
@@ -424,12 +425,45 @@ npm run sync:ado
 - **Run preflight check**: `npm run pilot preflight`
 - **Execute tests**: `npm run pilot takeoff`
 
+## Email & MFA Testing with Mailosaur
+
+Playwright Pilot includes built-in Mailosaur integration for testing email workflows and automating MFA login flows.
+
+**Key capabilities:**
+
+- **Invisible MFA** - `autoPilot.login(mfaUser)` automatically handles OTP retrieval
+- **Email Validation** - Verify Salesforce emails have correct content, links, and attachments
+- **Spam Analysis** - Check SpamAssassin scores to ensure emails reach inboxes
+- **Deliverability** - Validate SPF/DKIM/DMARC authentication passes
+
+**Quick example:**
+
+```typescript
+test("[10001] Order confirmation email is correct", async ({ mail, ordersPage }) => {
+  const recipient = "customer@abc123.mailosaur.net";
+
+  await test.step("Trigger email", async () => {
+    await ordersPage.sendConfirmation();
+  });
+
+  await test.step("Validate email content", async () => {
+    const message = await mail.waitForMessage(recipient, {
+      subjectContains: "Order Confirmation",
+    });
+    expect(message.textBody).toContain("Thank you for your order");
+  });
+});
+```
+
+See [README.mailosaur.md](./README.mailosaur.md) for complete setup, fixture API reference, and advanced usage.
+
 ## Documentation
 
 - **[README.cli.md](./README.cli.md)** - Complete CLI command reference
 - **[README.ado.md](./README.ado.md)** - Azure DevOps mapping philosophy and structure
 - **[README.testdata.md](./README.testdata.md)** - Models, factories, and dataStore usage
 - **[README.login.md](./README.login.md)** - AutoPilot and LoginPilot architecture
+- **[README.mailosaur.md](./README.mailosaur.md)** - Mailosaur integration for MFA and email testing
 - **[README.artifacts.md](./README.artifacts.md)** - Trace capture and ADO attachments
 
 ## Golden Rules
