@@ -138,16 +138,53 @@ export async function get<T = unknown>(key: `test.${string}`): Promise<T | undef
   return store[key] as T | undefined;
 }
 
+// Recursively substitutes <serverId> placeholder with MAILOSAUR_SERVER_ID env var.
+// Throws if placeholder is present but env var is missing.
+const SERVER_ID_PLACEHOLDER = "<serverId>";
+
+function substituteServerIdPlaceholder(value: unknown): unknown {
+  if (typeof value === "string") {
+    if (value.includes(SERVER_ID_PLACEHOLDER)) {
+      const serverId = process.env.MAILOSAUR_SERVER_ID;
+      if (!serverId) {
+        throw new Error(
+          `Value contains "${SERVER_ID_PLACEHOLDER}" placeholder but MAILOSAUR_SERVER_ID ` +
+          `environment variable is not set. Set it in your .env file or pipeline variables.`
+        );
+      }
+      return value.replace(new RegExp(SERVER_ID_PLACEHOLDER, "g"), serverId);
+    }
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => substituteServerIdPlaceholder(item));
+  }
+
+  if (value !== null && typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      result[k] = substituteServerIdPlaceholder(v);
+    }
+    return result;
+  }
+
+  // Primitives (number, boolean, null, undefined) pass through unchanged
+  return value;
+}
+
 // Loads a value from canonical store (system.* keys only).
+// Automatically substitutes <serverId> placeholders with MAILOSAUR_SERVER_ID env var.
 export async function load(key: SystemKey): Promise<unknown> {
   if (!key.startsWith("system.")) {
     throw new Error(
-      `load() can only be used with system.* keys. Received: "${key}". Use get() for test.* keys.`
+      `load() can only be used with system.* keys. Received: "${key}".`
     );
   }
 
   const store = await loadCanonicalStore();
-  return store[key];
+  const rawValue = store[key];
+  return substituteServerIdPlaceholder(rawValue);
 }
 
 // Clears run state (called at start of each run).

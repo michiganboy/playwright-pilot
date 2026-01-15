@@ -109,3 +109,165 @@ describe("dataStore split storage", () => {
     expect(user2).toEqual({ id: "2", name: "User 2" });
   });
 });
+
+describe("dataStore <serverId> substitution", () => {
+  const originalEnv = process.env.MAILOSAUR_SERVER_ID;
+
+  beforeEach(async () => {
+    await clearCanonicalStore().catch(() => {});
+  });
+
+  afterEach(async () => {
+    // Restore original env
+    if (originalEnv !== undefined) {
+      process.env.MAILOSAUR_SERVER_ID = originalEnv;
+    } else {
+      delete process.env.MAILOSAUR_SERVER_ID;
+    }
+    await clearCanonicalStore().catch(() => {});
+  });
+
+  test("load() substitutes <serverId> in all string values", async () => {
+    // Set env var
+    process.env.MAILOSAUR_SERVER_ID = "test-server-123";
+
+    // Write a system entry with <serverId> placeholder
+    await fs.writeFile(
+      canonicalStorePath,
+      JSON.stringify({
+        "system.test.mfaUser": {
+          username: "admin@example.com",
+          email: "admin@example.com",
+          mfa: {
+            provider: "mailosaur",
+            channels: {
+              email: {
+                sentTo: "admin@<serverId>.mailosaur.net",
+              },
+            },
+          },
+        },
+      }, null, 2)
+    );
+
+    const result = await load("system.test.mfaUser" as any);
+
+    // Verify object shape is preserved and placeholder is replaced
+    expect(result).toEqual({
+      username: "admin@example.com",
+      email: "admin@example.com",
+      mfa: {
+        provider: "mailosaur",
+        channels: {
+          email: {
+            sentTo: "admin@test-server-123.mailosaur.net",
+          },
+        },
+      },
+    });
+  });
+
+  test("load() throws when <serverId> exists but env is missing", async () => {
+    // Ensure env var is NOT set
+    delete process.env.MAILOSAUR_SERVER_ID;
+
+    // Write a system entry with <serverId> placeholder
+    await fs.writeFile(
+      canonicalStorePath,
+      JSON.stringify({
+        "system.test.mfaUser": {
+          username: "admin@example.com",
+          mfa: {
+            channels: {
+              email: { sentTo: "admin@<serverId>.mailosaur.net" },
+            },
+          },
+        },
+      }, null, 2)
+    );
+
+    await expect(load("system.test.mfaUser" as any)).rejects.toThrow(
+      /MAILOSAUR_SERVER_ID environment variable is not set/
+    );
+  });
+
+  test("load() does NOT throw when no <serverId> placeholder and env is missing", async () => {
+    // Ensure env var is NOT set
+    delete process.env.MAILOSAUR_SERVER_ID;
+
+    // Write a system entry WITHOUT placeholder
+    await fs.writeFile(
+      canonicalStorePath,
+      JSON.stringify({
+        "system.test.regularUser": {
+          username: "regular@example.com",
+          email: "regular@example.com",
+          role: "admin",
+        },
+      }, null, 2)
+    );
+
+    const result = await load("system.test.regularUser" as any);
+
+    // Should return value unchanged, no error
+    expect(result).toEqual({
+      username: "regular@example.com",
+      email: "regular@example.com",
+      role: "admin",
+    });
+  });
+
+  test("load() substitutes multiple <serverId> occurrences in same string", async () => {
+    process.env.MAILOSAUR_SERVER_ID = "multi-test";
+
+    await fs.writeFile(
+      canonicalStorePath,
+      JSON.stringify({
+        "system.test.multiPlaceholder": {
+          primary: "user@<serverId>.mailosaur.net",
+          secondary: "backup@<serverId>.mailosaur.net",
+          nested: {
+            deep: "deep@<serverId>.mailosaur.net",
+          },
+        },
+      }, null, 2)
+    );
+
+    const result = await load("system.test.multiPlaceholder" as any);
+
+    expect(result).toEqual({
+      primary: "user@multi-test.mailosaur.net",
+      secondary: "backup@multi-test.mailosaur.net",
+      nested: {
+        deep: "deep@multi-test.mailosaur.net",
+      },
+    });
+  });
+
+  test("load() preserves non-string values unchanged", async () => {
+    process.env.MAILOSAUR_SERVER_ID = "preserve-test";
+
+    await fs.writeFile(
+      canonicalStorePath,
+      JSON.stringify({
+        "system.test.mixedTypes": {
+          name: "user@<serverId>.mailosaur.net",
+          count: 42,
+          enabled: true,
+          tags: ["tag1", "tag@<serverId>.net"],
+          meta: null,
+        },
+      }, null, 2)
+    );
+
+    const result = await load("system.test.mixedTypes" as any);
+
+    expect(result).toEqual({
+      name: "user@preserve-test.mailosaur.net",
+      count: 42,
+      enabled: true,
+      tags: ["tag1", "tag@preserve-test.net"],
+      meta: null,
+    });
+  });
+});

@@ -497,6 +497,22 @@ Command:  npm run test:cli -- --runInBand --verbose src/testdata/__tests__/names
 NOT CLEARED FOR TAKEOFF
 ```
 
+**Flight Logs:**
+
+Preflight and takeoff runs are logged to `.pilot/preflight/`. Logs are automatically pruned to keep only the most recent runs.
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `PILOT_LOG_RETENTION` | `10` | Number of log files to retain |
+
+To customize log retention, set in `.env`:
+
+```env
+PILOT_LOG_RETENTION=20
+```
+
+The `.pilot/` directory is gitignored and contains only local runtime artifacts.
+
 ## Takeoff
 
 The `takeoff` command executes the resolved test plan.

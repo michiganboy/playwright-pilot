@@ -9,6 +9,10 @@ export const system = {
       sales: "system.salesforce.users.sales",
       accountManager: "system.salesforce.users.accountManager",
     },
+    mfaUsers: {
+      adminA: "system.salesforce.mfaUsers.adminA",
+      adminB: "system.salesforce.mfaUsers.adminB",
+    },
   },
 } as const;
 

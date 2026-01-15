@@ -38,6 +38,7 @@
     "dotenv": "^16.4.0",
     "fast-glob": "^3.3.3",
     "figlet": "^1.9.4",
+    "mailosaur": "^8.7.0",
     "mimicry-js": "^1.3.0",
     "word-wrap": "^1.2.5"
   },

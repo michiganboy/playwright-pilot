@@ -1,10 +1,27 @@
 // Preflight logging utility - captures and writes check output to flight logs
-import { existsSync, mkdirSync, writeFileSync, renameSync } from "fs";
+import { existsSync, mkdirSync, writeFileSync, renameSync, readdirSync, unlinkSync, statSync } from "fs";
 import { join, dirname } from "path";
 import { REPO_ROOT } from "./paths";
 
 const LOG_DIR = join(REPO_ROOT, ".pilot", "preflight");
 const TAIL_LINES = 60;
+
+// Default number of log files to retain. Override via PILOT_LOG_RETENTION env var.
+const DEFAULT_LOG_RETENTION = 10;
+
+/**
+ * Gets the configured log retention count from env or default.
+ */
+function getLogRetention(): number {
+  const envValue = process.env.PILOT_LOG_RETENTION;
+  if (envValue) {
+    const parsed = parseInt(envValue, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return DEFAULT_LOG_RETENTION;
+}
 
 /**
  * Writes a file atomically using temp file + rename.
@@ -52,11 +69,47 @@ export function ensureLogDir(): void {
 }
 
 /**
+ * Prunes old log files, keeping only the most recent N logs.
+ * Runs silently - errors do not interrupt execution.
+ */
+export function pruneOldLogs(): void {
+  try {
+    const retention = getLogRetention();
+    if (!existsSync(LOG_DIR)) {
+      return;
+    }
+
+    const files = readdirSync(LOG_DIR)
+      .filter((f) => f.endsWith(".log"))
+      .map((f) => ({
+        name: f,
+        path: join(LOG_DIR, f),
+        mtime: statSync(join(LOG_DIR, f)).mtime.getTime(),
+      }))
+      .sort((a, b) => b.mtime - a.mtime); // Newest first
+
+    // Delete files beyond retention count
+    const toDelete = files.slice(retention);
+    for (const file of toDelete) {
+      try {
+        unlinkSync(file.path);
+      } catch {
+        // Ignore individual file deletion errors
+      }
+    }
+  } catch {
+    // Silently ignore errors - log cleanup should not break execution
+  }
+}
+
+/**
  * Creates a new log file path with timestamp.
  * Does NOT create the file - writeLogHeader handles atomic initialization.
+ * Prunes old logs before creating new path.
  */
 export function createLogFilePath(phase: "preflight" | "takeoff" = "preflight"): string {
   ensureLogDir();
+  pruneOldLogs();
   const timestamp = getLogTimestamp();
   return join(LOG_DIR, `${phase}-${timestamp}.log`);
 }

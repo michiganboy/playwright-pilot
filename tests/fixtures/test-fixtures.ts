@@ -3,8 +3,11 @@ import { test as base, expect } from "@playwright/test";
 import { AutoPilot, type LoginPilot } from "../../src/utils/autoPilot";
 import { dataStoreFixtures } from "./dataStore";
 import { systemFixtures } from "./system";
+import { mailosaurFixtures, type MailFixture, type OtpFixture, type LinksFixture, type MailCleanupFixture } from "./mailosaur-fixtures";
 import { setTestContext, clearTestContext } from "../../src/testdata/tools/context";
 import type { set as setFn, get as getFn } from "../../src/utils/dataStore";
+import type { MfaHelper } from "../../src/integrations/mailosaur/types";
+import { MailosaurClient, createMfaHelper } from "../../src/integrations/mailosaur/MailosaurClient";
 
 type Fixtures = {
   autoPilot: AutoPilot;
@@ -12,7 +15,27 @@ type Fixtures = {
   set: typeof setFn;
   get: typeof getFn;
   systemValues: Record<string, unknown>;
+  mail: MailFixture;
+  otp: OtpFixture;
+  links: LinksFixture;
+  mailCleanup: MailCleanupFixture;
 };
+
+// Lazily creates MFA helper only when Mailosaur env vars are configured.
+function createMfaHelperIfConfigured(): MfaHelper | undefined {
+  const hasMailosaurConfig = process.env.MAILOSAUR_API_KEY && process.env.MAILOSAUR_SERVER_ID;
+  if (!hasMailosaurConfig) {
+    return undefined;
+  }
+
+  try {
+    const client = new MailosaurClient();
+    return createMfaHelper(client);
+  } catch {
+    // Mailosaur not configured or package not installed - MFA helper unavailable
+    return undefined;
+  }
+}
 
 export const test = base.extend<Fixtures>({
   // Per-test seed initialization (A2 strategy)
@@ -47,7 +70,8 @@ export const test = base.extend<Fixtures>({
   },
 
   autoPilot: async ({ page, loginPilot }, use) => {
-    await use(new AutoPilot(page, loginPilot));
+    const mfaHelper = createMfaHelperIfConfigured();
+    await use(new AutoPilot(page, loginPilot, mfaHelper));
   },
 
   // DataStore fixtures
@@ -55,6 +79,9 @@ export const test = base.extend<Fixtures>({
 
   // System fixtures
   ...systemFixtures,
+
+  // Mailosaur fixtures
+  ...mailosaurFixtures,
 });
 
 export { expect };
