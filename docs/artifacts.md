@@ -254,5 +254,5 @@ playwright-report/
 ## See Also
 
 - [README.md](./README.md) - Main documentation and bootstrap guide
-- [README.cli.md](./README.cli.md) - CLI command reference (`trace:open`)
-- [README.ado.md](./README.ado.md) - Azure DevOps mapping and sync
+- [cli.md](./cli.md) - CLI command reference (`trace:open`)
+- [ado.md](./ado.md) - Azure DevOps mapping and sync

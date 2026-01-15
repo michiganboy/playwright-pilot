@@ -181,7 +181,7 @@ npm run pilot page:add "UserProfile" --feature "user-management"
 - Placeholder locators with `data-testid` selectors
 - Example methods (`navigateTo<PageName>`, actions)
 - Health check method for verifying key elements
-- **For Login pages only**: Stubbed `toLoginPilot()` adapter method (see [README.login.md](./README.login.md))
+- **For Login pages only**: Stubbed `toLoginPilot()` adapter method (see [login.md](./login.md))
 
 **Example Output:**
 
@@ -286,9 +286,9 @@ npm run pilot factory:add "Product"
 **Next Steps:**
 
 - Add fields to the generated model interface
-- Add field generators to the builder using tools (see [README.tools.md](./README.tools.md))
+- Add field generators to the builder using tools (see [tools.md](./tools.md))
 - Use `set/get` from dataStore for persistence
-- Use factories in tests, not builders directly (see [README.builders.md](./README.builders.md))
+- Use factories in tests, not builders directly (see [builders.md](./builders.md))
 
 **Example Generated Model:**
 
@@ -561,7 +561,7 @@ The `trace:open` command opens the Playwright HTML report in your browser.
 npm run pilot trace:open
 ```
 
-This executes `npx playwright show-report` to open the most recent test report. See [README.artifacts.md](./README.artifacts.md) for more details on trace capture and viewing.
+This executes `npx playwright show-report` to open the most recent test report. See [artifacts.md](./artifacts.md) for more details on trace capture and viewing.
 
 ## Input Normalization
 
@@ -605,9 +605,9 @@ Examples in this documentation match the current templates. If you need to custo
 ## See Also
 
 - [README.md](./README.md) - Main documentation and bootstrap guide
-- [README.ado.md](./README.ado.md) - Azure DevOps mapping philosophy
-- [README.testdata.md](./README.testdata.md) - Test data system details
-- [README.tools.md](./README.tools.md) - Factory tools usage
-- [README.builders.md](./README.builders.md) - Builder usage with mimicry-js
-- [README.login.md](./README.login.md) - AutoPilot and LoginPilot architecture
-- [README.artifacts.md](./README.artifacts.md) - Trace and attachment details
+- [ado.md](./ado.md) - Azure DevOps mapping philosophy
+- [testdata.md](./testdata.md) - Test data system details
+- [tools.md](./tools.md) - Factory tools usage
+- [builders.md](./builders.md) - Builder usage with mimicry-js
+- [login.md](./login.md) - AutoPilot and LoginPilot architecture
+- [artifacts.md](./artifacts.md) - Trace and attachment details

@@ -268,7 +268,7 @@ The CLI will:
 - Manually add field generators to the builder (using tools)
 - Optionally add traits and post-build hooks
 
-See [README.tools.md](./README.tools.md) for tools usage and [README.builders.md](./README.builders.md) for builder patterns.
+See [tools.md](./tools.md) for tools usage and [builders.md](./builders.md) for builder patterns.
 
 ## Examples
 
@@ -338,6 +338,6 @@ Two separate storage files with different purposes:
 ## See Also
 
 - [README.md](./README.md) - Main documentation and bootstrap guide
-- [README.tools.md](./README.tools.md) - Factory tools usage
-- [README.builders.md](./README.builders.md) - Builder usage with mimicry-js
-- [README.cli.md](./README.cli.md) - CLI command reference (factory/system creation)
+- [tools.md](./tools.md) - Factory tools usage
+- [builders.md](./builders.md) - Builder usage with mimicry-js
+- [cli.md](./cli.md) - CLI command reference (factory/system creation)

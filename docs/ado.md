@@ -212,7 +212,7 @@ When tests run, results can be synced to Azure DevOps. The framework supports:
 - **Test steps**
 - **Attachments** (traces, error context, metadata)
 
-See [README.artifacts.md](./README.artifacts.md) for details on trace capture and attachment configuration.
+See [artifacts.md](./artifacts.md) for details on trace capture and attachment configuration.
 
 ## Sync to Azure DevOps
 
@@ -247,5 +247,5 @@ The sync process:
 ## See Also
 
 - [README.md](./README.md) - Main documentation and bootstrap guide
-- [README.cli.md](./README.cli.md) - CLI command reference
-- [README.artifacts.md](./README.artifacts.md) - Trace and attachment details
+- [cli.md](./cli.md) - CLI command reference
+- [artifacts.md](./artifacts.md) - Trace and attachment details

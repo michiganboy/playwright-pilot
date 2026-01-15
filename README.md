@@ -1,14 +1,6 @@
-```
-                                                                                       _
-    ____  __                          _       __    __     ____  _ __      __        -=\`\
-   / __ \/ /___ ___  ___      _______(_)___ _/ /_  / /_   / __ \(_) /___  / /_   |\ ____\_\__
-  / /_/ / / __ `/ / / / | /| / / ___/ / __ `/ __ \/ __/  / /_/ / / / __ \/ __/ -=\ `""""""" "`)
- / ____/ / /_/ / /_/ /| |/ |/ / /  / / /_/ / / / / /_   / ____/ / / /_/ / /_      `~~~~~/ /~~`
-/_/   /_/\__,_/\__, / |__/|__/_/  /_/\__, /_/ /_/\__/  /_/   /_/_/\____/\__/        -==/ /
-              /____/                /____/                                            '-'
-
-                         Fasten your Seatbelts and Prepare for Takeoff
-```
+<div align="center">
+  <img src="docs/images/playwrightPilotLogo.png" alt="Playwright Pilot - Fasten your Seatbelts and Prepare for Takeoff" />
+</div>
 
 Playwright Pilot is a Playwright-based automation framework with a first-class CLI designed to enforce consistency, traceability, and alignment with Azure DevOps Test Plans.
 
@@ -29,10 +21,10 @@ Playwright Pilot is designed for:
 - **CLI Scaffolding** - Resource-scoped commands (`feature:add`, `page:add`, `spec:add`, `factory:add`, `trace:open`) automate framework setup
 - **Page Objects + Fixtures** - Automatic wiring of page objects into Playwright fixtures
 - **AutoPilot Workflows** - Cross-application actions like `autoPilot.login()` that work across features
-- **Mailosaur Integration** - Invisible MFA automation, email content validation, spam analysis, and deliverability testing (see [README.mailosaur.md](./README.mailosaur.md))
-- **ADO Test Plan Mapping** - Features map to test plans, suites to test suites, tests to test cases (see [README.ado.md](./README.ado.md))
-- **Test Data System** - Models, builders (mimicry-js), factories, and split dataStore (system._ → canonical, test._ → runtime) (see [README.testdata.md](./README.testdata.md), [README.tools.md](./README.tools.md), and [README.builders.md](./README.builders.md))
-- **Trace Capture + ADO Attachments** - Automatic trace recording and configurable artifact uploads to Azure DevOps (see [README.artifacts.md](./README.artifacts.md))
+- **Mailosaur Integration** - Invisible MFA automation, email content validation, spam analysis, and deliverability testing (see [docs/mailosaur.md](./docs/mailosaur.md))
+- **ADO Test Plan Mapping** - Features map to test plans, suites to test suites, tests to test cases (see [docs/ado.md](./docs/ado.md))
+- **Test Data System** - Models, builders (mimicry-js), factories, and split dataStore (system._ → canonical, test._ → runtime) (see [docs/testdata.md](./docs/testdata.md), [docs/tools.md](./docs/tools.md), and [docs/builders.md](./docs/builders.md))
+- **Trace Capture + ADO Attachments** - Automatic trace recording and configurable artifact uploads to Azure DevOps (see [docs/artifacts.md](./docs/artifacts.md))
 - **trace:open Command** - Quick access to Playwright HTML reports via `npm run pilot trace:open`
 
 ## Project Structure
@@ -270,7 +262,7 @@ toLoginPilot() {
 }
 ```
 
-This adapter enables `autoPilot.login()` to work across your entire test suite. See [README.login.md](./README.login.md) for details.
+This adapter enables `autoPilot.login()` to work across your entire test suite. See [docs/login.md](./docs/login.md) for details.
 
 ### Step 7: Verify Fixtures Wiring
 
@@ -455,16 +447,16 @@ test("[10001] Order confirmation email is correct", async ({ mail, ordersPage })
 });
 ```
 
-See [README.mailosaur.md](./README.mailosaur.md) for complete setup, fixture API reference, and advanced usage.
+See [docs/mailosaur.md](./docs/mailosaur.md) for complete setup, fixture API reference, and advanced usage.
 
 ## Documentation
 
-- **[README.cli.md](./README.cli.md)** - Complete CLI command reference
-- **[README.ado.md](./README.ado.md)** - Azure DevOps mapping philosophy and structure
-- **[README.testdata.md](./README.testdata.md)** - Models, factories, and dataStore usage
-- **[README.login.md](./README.login.md)** - AutoPilot and LoginPilot architecture
-- **[README.mailosaur.md](./README.mailosaur.md)** - Mailosaur integration for MFA and email testing
-- **[README.artifacts.md](./README.artifacts.md)** - Trace capture and ADO attachments
+- **[docs/cli.md](./docs/cli.md)** - Complete CLI command reference
+- **[docs/ado.md](./docs/ado.md)** - Azure DevOps mapping philosophy and structure
+- **[docs/testdata.md](./docs/testdata.md)** - Models, factories, and dataStore usage
+- **[docs/login.md](./docs/login.md)** - AutoPilot and LoginPilot architecture
+- **[docs/mailosaur.md](./docs/mailosaur.md)** - Mailosaur integration for MFA and email testing
+- **[docs/artifacts.md](./docs/artifacts.md)** - Trace capture and ADO attachments
 
 ## Golden Rules
 

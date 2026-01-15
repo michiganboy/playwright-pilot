@@ -442,6 +442,6 @@ postBuild: (user) => {
 
 ## See Also
 
-- [README.testdata.md](./README.testdata.md) - Complete test data system overview
-- [README.cli.md](./README.cli.md) - CLI commands for creating factories/builders
+- [testdata.md](./testdata.md) - Complete test data system overview
+- [cli.md](./cli.md) - CLI commands for creating factories/builders
 - [mimicry-js GitHub](https://github.com/Stivooo/mimicry-js) - Full mimicry-js documentation

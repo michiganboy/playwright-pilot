@@ -297,6 +297,6 @@ const updatedUser = tools.override.pick(
 
 ## See Also
 
-- [README.testdata.md](./README.testdata.md) - Complete test data system
-- [README.builders.md](./README.builders.md) - Builder usage with mimicry-js
-- [README.cli.md](./README.cli.md) - CLI commands (factory creation)
+- [testdata.md](./testdata.md) - Complete test data system
+- [builders.md](./builders.md) - Builder usage with mimicry-js
+- [cli.md](./cli.md) - CLI commands (factory creation)
