@@ -71,9 +71,10 @@ To use the `pilot` command directly instead of `npm run pilot`:
 
 ```bash
 npm run build:cli
+npm link
 ```
 
-This compiles the CLI for faster execution. Skip this step if you prefer using `npm run pilot`.
+This compiles the CLI and creates a global symlink. Skip this step if you prefer using `npm run pilot`.
 
 ### Step 3: Configure Environment (Optional)
 
