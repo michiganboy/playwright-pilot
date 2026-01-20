@@ -8,6 +8,7 @@ dotenv.config({ path: path.resolve(__dirname, ".env") });
 const reporters: any[] = [
   ["./src/utils/custom-list-reporter.ts"],
   ["json", { outputFile: "playwright-report.json" }],
+  ["html", { outputFolder: "playwright-report", open: "never" }],
 ];
 
 export default defineConfig({
