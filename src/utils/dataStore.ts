@@ -178,7 +178,7 @@ function substituteServerIdPlaceholder(value: unknown): unknown {
 export async function load(key: SystemKey): Promise<unknown> {
   if (!key.startsWith("system.")) {
     throw new Error(
-      `load() can only be used with system.* keys. Received: "${key}".`
+      `load() can only be used with system.* keys. Received: "${key}". Use get() for test.* keys.`
     );
   }
 
