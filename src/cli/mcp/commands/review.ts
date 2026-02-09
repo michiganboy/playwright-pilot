@@ -40,6 +40,10 @@ const UNDERLINE = "\x1b[4m";
 export interface ReviewOptions {
   /** Specific proposal set ID to review */
   proposalId?: string;
+  /** Use newest active proposal */
+  latest?: boolean;
+  /** Print proposal + selection as JSON to stdout (no prompts) */
+  json?: boolean;
   /** Non-interactive mode - select all */
   all?: boolean;
   /** Non-interactive mode - select none */
@@ -178,77 +182,113 @@ async function reviewItemInteractively(
  * Main review command implementation.
  */
 export async function runReview(options: ReviewOptions = {}): Promise<boolean> {
-  const log = options.quiet ? () => {} : console.log;
+  const isJson = !!options.json;
+  const log = options.quiet || isJson ? () => {} : console.log;
   const LINE = "\u2500".repeat(60);
 
-  log();
-  log(`${BOLD}PILOT MCP REVIEW${RESET}`);
-  log(LINE);
-  log();
+  if (!options.quiet && !isJson) {
+    log();
+    log(`${BOLD}PILOT MCP REVIEW${RESET}`);
+    log(LINE);
+    log();
+  }
 
-  // Step 1: Find proposal to review
+  // Step 1: Resolve proposal ID
   let proposalId = options.proposalId;
-  
+
   if (!proposalId) {
-    const activeIds = await listActiveProposals();
-    
-    if (activeIds.length === 0) {
-      log(`${YELLOW}No active proposals found.${RESET}`);
-      log();
-      log(`${DIM}Run heal first to generate proposals:${RESET}`);
-      log(`  pilot mcp heal`);
-      log();
-      return false;
+    if (options.latest) {
+      proposalId = (await getMostRecentProposalId()) ?? undefined;
     }
-    
-    if (activeIds.length === 1) {
-      proposalId = activeIds[0];
-    } else {
-      // Let user select which proposal to review
-      // Sort by creation time, newest first
-      const proposals: Array<{ id: string; createdAt: string; itemCount: number }> = [];
-      for (const id of activeIds) {
-        const p = await loadProposalSet(id);
-        if (p) {
-          proposals.push({
-            id: p.id,
-            createdAt: p.createdAt,
-            itemCount: p.items.length,
-          });
+    if (!proposalId) {
+      const activeIds = await listActiveProposals();
+      if (activeIds.length === 0) {
+        if (isJson) {
+          console.log(JSON.stringify({ error: "No active proposals found" }));
+          return false;
         }
+        log(`${YELLOW}No active proposals found.${RESET}`);
+        log();
+        log(`${DIM}Run heal first to generate proposals:${RESET}`);
+        log(`  pilot mcp heal`);
+        log();
+        return false;
       }
-      
-      // Sort by createdAt descending (newest first)
-      proposals.sort((a, b) => {
-        const dateA = new Date(a.createdAt).getTime();
-        const dateB = new Date(b.createdAt).getTime();
-        return dateB - dateA;
-      });
-      
-      // Default to most recent (first in sorted list)
-      const defaultId = proposals[0]?.id;
-      const totalCount = proposals.length;
-      
-      const selected = await select({
-        message: `Select proposal to review (${totalCount} total):`,
-        choices: proposals.map((p, idx) => ({
-          name: `[${idx + 1}/${totalCount}] ${p.id.substring(0, 8)}... (${p.itemCount} items, ${new Date(p.createdAt).toLocaleString()})`,
-          value: p.id,
-        })),
-        default: defaultId,
-        loop: false, // Disable wraparound navigation
-      });
-      
-      proposalId = selected;
+      if (activeIds.length === 1) {
+        proposalId = activeIds[0];
+      } else {
+        // Interactive: let user select which proposal to review
+        const proposals: Array<{ id: string; createdAt: string; itemCount: number }> = [];
+        for (const id of activeIds) {
+          const p = await loadProposalSet(id);
+          if (p) {
+            proposals.push({
+              id: p.id,
+              createdAt: p.createdAt,
+              itemCount: p.items.length,
+            });
+          }
+        }
+        proposals.sort((a, b) => {
+          const dateA = new Date(a.createdAt).getTime();
+          const dateB = new Date(b.createdAt).getTime();
+          return dateB - dateA;
+        });
+        const defaultId = proposals[0]?.id;
+        const totalCount = proposals.length;
+        const selected = await select({
+          message: `Select proposal to review (${totalCount} total):`,
+          choices: proposals.map((p, idx) => ({
+            name: `[${idx + 1}/${totalCount}] ${p.id.substring(0, 8)}... (${p.itemCount} items, ${new Date(p.createdAt).toLocaleString()})`,
+            value: p.id,
+          })),
+          default: defaultId,
+          loop: false,
+        });
+        proposalId = selected;
+      }
     }
   }
 
   // Step 2: Load proposal set
   const proposalSet = await loadProposalSet(proposalId);
-  
+
   if (!proposalSet) {
+    if (isJson) {
+      console.log(JSON.stringify({ error: `Proposal not found: ${proposalId}` }));
+      return false;
+    }
     console.error(`${RED}Proposal not found: ${proposalId}${RESET}`);
     return false;
+  }
+
+  // JSON mode: never prompt; print machine-readable output only
+  if (isJson) {
+    let manifest: SelectionManifest | null = null;
+    try {
+      manifest = await loadSelectionManifest(proposalId);
+    } catch {
+      manifest = null;
+    }
+    const selectedItemIds =
+      manifest?.selectedItemIds && Array.isArray(manifest.selectedItemIds)
+        ? manifest.selectedItemIds
+        : proposalSet.items.map((i) => i.id);
+    const selectedSet = new Set(selectedItemIds);
+    const selectedItems = proposalSet.items.filter((i) => selectedSet.has(i.id));
+    console.log(
+      JSON.stringify(
+        {
+          proposalId,
+          selectedItemIds,
+          selectedItems,
+          proposal: proposalSet,
+        },
+        null,
+        2
+      )
+    );
+    return true;
   }
 
   log(`${CYAN}Reviewing proposal: ${proposalSet.id.substring(0, 8)}...${RESET}`);
