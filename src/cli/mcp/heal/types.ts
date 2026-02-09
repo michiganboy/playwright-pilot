@@ -109,13 +109,29 @@ export interface RuleEngineResult {
 
 /**
  * File edit result from applying a patch operation.
+ * replaceText: occurrencesReplaced, bytesChanged.
+ * insertAfter: linesAdded, bytesChanged.
  */
 export interface FileEditResult {
   operation: PatchOperation;
   success: boolean;
   message: string;
   filePath: string;
-  linesChanged?: number;
+  /** replaceText: number of occurrences replaced */
+  occurrencesReplaced?: number;
+  /** insertAfter: number of lines added */
+  linesAdded?: number;
+  /** bytes (characters) changed by this operation */
+  bytesChanged?: number;
+  error?: string;
+}
+
+/**
+ * Result of rolling back one file after a failed apply.
+ */
+export interface RollbackResult {
+  filePath: string;
+  success: boolean;
   error?: string;
 }
 
@@ -125,6 +141,8 @@ export interface FileEditResult {
 export interface PatchApplyResult {
   patchPlan: PatchPlan;
   results: FileEditResult[];
+  /** Set when a failure triggered rollback; best-effort per-file results */
+  rollbackResults?: RollbackResult[];
   success: boolean;
   totalOperations: number;
   successfulOperations: number;

@@ -1,32 +1,50 @@
 // Patch applier - applies patch plans to files
-// Handles preview mode and safety checks
+// Transactional: on any failure, rolls back all prior operations.
 
-import type { PatchPlan, PatchApplyResult, FileEditResult } from "../types";
+import path from "path";
+import { promises as fs } from "fs";
+import { existsSync } from "fs";
+import type { PatchPlan, PatchApplyResult, FileEditResult, RollbackResult } from "../types";
 import { validatePatchPlan, previewPatchPlan } from "./patchPlanner";
 import { replaceTextInFile, insertAfterInFile } from "./fileEdits";
-import { resolveTargetFile } from "./resolveTargetFile";
+import { REPO_ROOT } from "../../../utils/paths";
+
+/**
+ * Restores file content atomically (temp + rename). Best-effort.
+ */
+async function restoreFile(fullPath: string, content: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const tempPath = `${fullPath}.tmp`;
+    await fs.writeFile(tempPath, content, "utf-8");
+    await fs.rename(tempPath, fullPath);
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
 
 /**
  * Applies a patch plan to files.
- * @param plan - The patch plan to apply
- * @param preview - If true, only preview changes without modifying files
+ * Paths are resolved once in validatePatchPlan; fileEdits receive resolved repo-relative paths.
+ * On any operation failure (non-preview), all prior changes are rolled back.
  */
 export async function applyPatchPlan(
   plan: PatchPlan,
   preview: boolean = false
 ): Promise<PatchApplyResult> {
-  // Validate plan first
   const validation = await validatePatchPlan(plan);
-  
+
   if (!validation.valid) {
-    // Operations may have been mutated by validation (paths resolved)
     return {
       patchPlan: plan,
       results: plan.operations.map((op) => ({
         operation: op,
         success: false,
         message: `Validation failed: ${validation.errors.join("; ")}`,
-        filePath: op.filePath, // May be resolved or original depending on where validation failed
+        filePath: op.filePath,
         error: validation.errors.join("; "),
       })),
       success: false,
@@ -36,83 +54,137 @@ export async function applyPatchPlan(
     };
   }
 
-  // Show warnings if any
-  if (validation.warnings.length > 0 && !preview) {
-    // Warnings are logged but don't block application
-  }
-
-  // Apply operations
   const results: FileEditResult[] = [];
 
   if (preview) {
-    // Preview mode: preview only (paths already resolved and mutated in previewPatchPlan)
     const previewMessages = await previewPatchPlan(plan);
     for (let i = 0; i < plan.operations.length; i++) {
       const op = plan.operations[i];
-      // op.filePath is already resolved by previewPatchPlan
       results.push({
         operation: op,
         success: true,
         message: `[PREVIEW] ${previewMessages[i] || "Would apply operation"}`,
-        filePath: op.filePath, // Already resolved
+        filePath: op.filePath,
       });
     }
-  } else {
-    // Real application - resolve paths and mutate operation.filePath before applying
-    for (const operation of plan.operations) {
-      // Resolve target file path and overwrite operation.filePath BEFORE any filesystem operations
-      const resolveResult = resolveTargetFile(operation.filePath);
-      
-      if (!resolveResult.success) {
+    return {
+      patchPlan: plan,
+      results,
+      success: true,
+      totalOperations: plan.operations.length,
+      successfulOperations: results.length,
+      failedOperations: 0,
+    };
+  }
+
+  // Real apply: paths already resolved by validatePatchPlan; snapshot before first write per file
+  const snapshotByFullPath = new Map<string, string>();
+  const repoRoot = REPO_ROOT;
+
+  for (const operation of plan.operations) {
+    const fullPath = path.join(repoRoot, operation.filePath);
+
+    if (!snapshotByFullPath.has(fullPath)) {
+      if (!existsSync(fullPath)) {
         results.push({
           operation,
           success: false,
-          message: resolveResult.error || `Failed to resolve file: ${operation.filePath}`,
+          message: `File not found: ${operation.filePath}`,
           filePath: operation.filePath,
-          error: resolveResult.error,
+          error: "File does not exist",
         });
-        continue;
+        const rollbackResults = await rollbackAll(snapshotByFullPath);
+        return {
+          patchPlan: plan,
+          results,
+          rollbackResults,
+          success: false,
+          totalOperations: plan.operations.length,
+          successfulOperations: results.filter((r) => r.success).length,
+          failedOperations: results.filter((r) => !r.success).length,
+        };
       }
-
-      // Overwrite operation.filePath with resolved path BEFORE any filesystem operations
-      operation.filePath = resolveResult.resolvedPath;
-
-      if (operation.type === "replaceText") {
-        const result = await replaceTextInFile(
-          operation.filePath, // Now using resolved path
-          operation.search!,
-          operation.replace!,
-          operation.occurrence || "first"
-        );
+      try {
+        const content = await fs.readFile(fullPath, "utf-8");
+        snapshotByFullPath.set(fullPath, content);
+      } catch (error) {
         results.push({
           operation,
-          ...result,
-          filePath: operation.filePath, // Already resolved
+          success: false,
+          message: `Failed to read file: ${operation.filePath}`,
+          filePath: operation.filePath,
+          error: error instanceof Error ? error.message : String(error),
         });
-      } else if (operation.type === "insertAfter") {
-        const result = await insertAfterInFile(
-          operation.filePath, // Now using resolved path
-          operation.anchor!,
-          operation.insert!
-        );
-        results.push({
-          operation,
-          ...result,
-          filePath: operation.filePath, // Already resolved
-        });
+        const rollbackResults = await rollbackAll(snapshotByFullPath);
+        return {
+          patchPlan: plan,
+          results,
+          rollbackResults,
+          success: false,
+          totalOperations: plan.operations.length,
+          successfulOperations: results.filter((r) => r.success).length,
+          failedOperations: results.filter((r) => !r.success).length,
+        };
       }
     }
-  }
 
-  const successfulOperations = results.filter((r) => r.success).length;
-  const failedOperations = results.filter((r) => !r.success).length;
+    let editResult: FileEditResult;
+    if (operation.type === "replaceText") {
+      const result = await replaceTextInFile(
+        operation.filePath,
+        operation.search,
+        operation.replace,
+        operation.occurrence || "first"
+      );
+      editResult = {
+        operation,
+        ...result,
+        filePath: operation.filePath,
+      };
+    } else {
+      const result = await insertAfterInFile(operation.filePath, operation.anchor, operation.insert);
+      editResult = {
+        operation,
+        ...result,
+        filePath: operation.filePath,
+      };
+    }
+
+    results.push(editResult);
+
+    if (!editResult.success) {
+      const rollbackResults = await rollbackAll(snapshotByFullPath);
+      return {
+        patchPlan: plan,
+        results,
+        rollbackResults,
+        success: false,
+        totalOperations: plan.operations.length,
+        successfulOperations: results.filter((r) => r.success).length,
+        failedOperations: results.filter((r) => !r.success).length,
+      };
+    }
+  }
 
   return {
     patchPlan: plan,
     results,
-    success: failedOperations === 0,
+    success: true,
     totalOperations: plan.operations.length,
-    successfulOperations,
-    failedOperations,
+    successfulOperations: results.length,
+    failedOperations: 0,
   };
+}
+
+async function rollbackAll(snapshotByFullPath: Map<string, string>): Promise<RollbackResult[]> {
+  const rollbackResults: RollbackResult[] = [];
+  for (const [fullPath, content] of snapshotByFullPath) {
+    const outcome = await restoreFile(fullPath, content);
+    rollbackResults.push({
+      filePath: fullPath,
+      success: outcome.success,
+      error: outcome.error,
+    });
+  }
+  return rollbackResults;
 }

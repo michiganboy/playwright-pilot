@@ -194,4 +194,64 @@ describe("patchApplier", () => {
     expect(result.results[0].success).toBe(false);
     expect(result.results[0].error).toContain("found 2 times");
   });
+
+  it("when second op fails, rolls back first op and file ends unchanged", async () => {
+    const originalContent = "old\nanchor\nline2";
+    const afterFirstOp = "new\nanchor\nline2";
+    const plan: PatchPlan = {
+      operations: [
+        { type: "replaceText", filePath: "test.ts", search: "old", replace: "new" },
+        { type: "insertAfter", filePath: "test.ts", anchor: "old", insert: "x" },
+      ],
+      description: "Test",
+      rationale: "Test",
+    };
+    mockReadFile
+      .mockResolvedValueOnce(originalContent)
+      .mockResolvedValueOnce(originalContent)
+      .mockResolvedValueOnce(originalContent)
+      .mockResolvedValueOnce(originalContent)
+      .mockResolvedValueOnce(afterFirstOp);
+    mockWriteFile.mockResolvedValue(undefined);
+    mockRename.mockResolvedValue(undefined);
+
+    const result = await applyPatchPlan(plan, false);
+
+    expect(result.success).toBe(false);
+    expect(result.results[0].success).toBe(true);
+    expect(result.results[1].success).toBe(false);
+    expect(result.rollbackResults).toBeDefined();
+    expect(result.rollbackResults!.length).toBe(1);
+    expect(result.rollbackResults![0].success).toBe(true);
+    expect(mockWriteFile.mock.calls.length).toBeGreaterThanOrEqual(2);
+    const lastWrite = mockWriteFile.mock.calls[mockWriteFile.mock.calls.length - 1];
+    expect(lastWrite[1]).toBe(originalContent);
+  });
+
+  it("fileEdits receives resolved path only (no double resolve)", async () => {
+    const plan: PatchPlan = {
+      operations: [
+        {
+          type: "replaceText",
+          filePath: "only-here.ts",
+          search: "x",
+          replace: "y",
+        },
+      ],
+      description: "Test",
+      rationale: "Test",
+    };
+    mockExistsSync.mockImplementation((p: unknown) => {
+      const normalized = String(p).replace(/\\/g, "/");
+      return normalized.endsWith("tests/only-here.ts");
+    });
+    mockReadFile.mockResolvedValue("x");
+    mockWriteFile.mockResolvedValue(undefined);
+    mockRename.mockResolvedValue(undefined);
+
+    const result = await applyPatchPlan(plan, false);
+
+    expect(result.success).toBe(true);
+    expect(result.results[0].filePath.replace(/\\/g, "/")).toBe("tests/only-here.ts");
+  });
 });
