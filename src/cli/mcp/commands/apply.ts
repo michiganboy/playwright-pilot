@@ -90,7 +90,18 @@ async function applyHealItem(
       message: "Heal item missing required patchPlan",
     };
   }
-  
+
+  const plan = rec.patchPlan;
+  const opCount = plan?.operations?.length ?? 0;
+  if (opCount === 0) {
+    return {
+      itemId: item.id,
+      success: true,
+      action: "skipped",
+      message: "No patch operations in patchPlan — nothing to apply (proposal is non-actionable).",
+    };
+  }
+
   // Apply patch plan
   {
     const patchResult = await applyPatchPlan(rec.patchPlan, preview);
@@ -468,11 +479,14 @@ export async function runApply(options: ApplyOptions = {}): Promise<boolean> {
     totalSkipped: results.filter((r) => r.action === "skipped").length,
   };
 
-  // Step 8: Archive proposal (unless preview mode)
-  if (!options.preview) {
+  // Step 8: Archive proposal only if we actually applied something (and not preview)
+  if (!options.preview && summary.totalApplied > 0) {
     log(`${CYAN}Archiving proposal...${RESET}`);
     const archivePath = await archiveProposal(proposalSet, manifest, summary);
     log(`  Archived to: ${archivePath}`);
+    log();
+  } else if (!options.preview && summary.totalApplied === 0) {
+    log(`${YELLOW}No changes were applied — leaving proposal active.${RESET}`);
     log();
   }
 
@@ -499,8 +513,7 @@ export async function runApply(options: ApplyOptions = {}): Promise<boolean> {
   }
 
   if (!options.preview && summary.totalApplied > 0) {
-    log(`${DIM}Note: This is a stub implementation.${RESET}`);
-    log(`${DIM}Real code modifications require full MCP integration.${RESET}`);
+    log(`${DIM}Applied patch operations to the working tree. Review changes with git diff.${RESET}`);
     log();
   }
 
