@@ -16,25 +16,26 @@ export { analyzeFailure, classifyFailure, validateProposalSet, MCP_ADAPTER_VERSI
 
 // Persistence
 export {
-  saveProposalSet,
-  loadProposalSet,
-  saveSelectionManifest,
-  loadSelectionManifest,
-  archiveProposal,
-  listActiveProposals,
-  listArchivedProposals,
-  getMostRecentProposalId,
-  copyEvidence,
-  PILOT_DIR,
-  PROPOSALS_DIR,
-  ACTIVE_DIR,
-  ARCHIVE_DIR,
-  EVIDENCE_DIR,
+	saveProposalSet,
+	loadProposalSet,
+	saveSelectionManifest,
+	loadSelectionManifest,
+	archiveProposal,
+	listActiveProposals,
+	listArchivedProposals,
+	getMostRecentProposalId,
+	copyEvidence,
+	PILOT_DIR,
+	PROPOSALS_DIR,
+	ACTIVE_DIR,
+	ARCHIVE_DIR,
+	EVIDENCE_DIR,
 } from "./persistence";
 
 // Commands
 export { runHeal, type HealOptions } from "./commands/heal";
 export { runSync } from "./commands/sync";
+export { runRun, type RunOptions } from "./commands/run";
 
 // Lazy-loaded commands (depend on ESM-only @inquirer/prompts)
 // Use dynamic imports to avoid loading ESM in Jest/CommonJS contexts

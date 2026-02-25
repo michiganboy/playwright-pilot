@@ -417,6 +417,7 @@ npm run sync:ado
 - **Create test data factories**: `npm run pilot factory:add "User"`
 - **Run preflight check**: `npm run pilot preflight`
 - **Execute tests**: `npm run pilot takeoff`
+- **Run MCP heal → review → apply workflow**: `npm run pilot mcp:run -- --trace path/to/trace.zip`
 
 ## Email & MFA Testing with Mailosaur
 
