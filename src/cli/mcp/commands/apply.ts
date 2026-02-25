@@ -19,6 +19,7 @@ import {
 } from "../persistence";
 import { loadSelectionManifest } from "../proposals/selectionManifest";
 import { REPO_ROOT } from "../../utils/paths";
+import { writeApplyReport } from "../reports/reportWriter";
 import { applyPatchPlan } from "../heal";
 import type {
   ProposalSet,
@@ -478,6 +479,25 @@ export async function runApply(options: ApplyOptions = {}): Promise<boolean> {
     totalFailed: results.filter((r) => r.action === "failed").length,
     totalSkipped: results.filter((r) => r.action === "skipped").length,
   };
+
+  try {
+    const reportPath = await writeApplyReport({
+      proposalSet,
+      selectionManifest: manifest,
+      applySummary: summary,
+      adoContext: proposalSet.context?.ado ?? null,
+    });
+    if (!options.quiet) {
+      log(`  Report: ${reportPath}`);
+      log();
+    }
+  } catch (reportError) {
+    console.error(
+      `${RED}Error: Failed to write apply report${RESET}: ${reportError instanceof Error ? reportError.message : String(reportError)}`
+    );
+    console.error();
+    return false;
+  }
 
   // Step 8: Archive proposal only if we actually applied something (and not preview)
   if (!options.preview && summary.totalApplied > 0) {
