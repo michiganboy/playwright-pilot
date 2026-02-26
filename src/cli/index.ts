@@ -10,7 +10,6 @@ import { runPreflight } from "./commands/preflight";
 import { runTakeoff } from "./commands/takeoff";
 import { openReport } from "./commands/trace";
 import { printBanner } from "./theme/banner";
-import { runHeal, runSync, runReview, runApply, runRun } from "./mcp";
 
 // ANSI color codes
 const RESET = "\x1b[0m";
@@ -238,115 +237,6 @@ program
       process.exit(1);
     }
   });
-
-/**
- * MCP Commands
- */
-program
-  .command("mcp:heal")
-  .description("Analyze the most recent failed test and generate MCP proposals")
-  .option("-t, --trace <path>", "Path to trace.zip or a test-results directory")
-  .option("--run-id <runId>", "Run ID to filter failures by")
-  .option("-q, --quiet", "Minimal output")
-  .action(async (opts: { trace?: string; runId?: string; quiet?: boolean }) => {
-    try {
-      const ok = await runHeal({
-        trace: opts.trace,
-        runId: opts.runId,
-        quiet: !!opts.quiet,
-      });
-      if (!ok) process.exit(1);
-    } catch (err) {
-      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
-      process.exit(1);
-    }
-  });
-
-program
-  .command("mcp:sync")
-  .description("Sync ADO context for the newest active MCP proposal")
-  .action(async () => {
-    try {
-      await runSync();
-    } catch (err) {
-      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
-      process.exit(1);
-    }
-  });
-
-program
-  .command("mcp:review")
-  .description("Review MCP proposals (interactive when available)")
-  .option("--proposal-id <id>", "Proposal ID to review")
-  .option("--latest", "Use newest active proposal")
-  .option("--json", "Print selected proposal to stdout as JSON")
-  .option("-q, --quiet", "Minimal output")
-  .action(async (opts: { proposalId?: string; latest?: boolean; json?: boolean; quiet?: boolean }) => {
-    try {
-      const ok = await runReview({
-        proposalId: opts.proposalId,
-        latest: !!opts.latest,
-        json: !!opts.json,
-        quiet: !!opts.quiet,
-      });
-      if (!ok) process.exit(1);
-    } catch (err) {
-      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
-      process.exit(1);
-    }
-  });
-
-program
-  .command("mcp:apply")
-  .description("Apply the selected MCP patch plan (requires explicit approval)")
-  .option("--proposal-id <id>", "Proposal ID to apply")
-  .option("--latest", "Use newest active proposal")
-  .option("-y, --yes", "Skip confirmation prompt when supported")
-  .option("--preview", "Preview changes without writing files")
-  .option("-q, --quiet", "Minimal output")
-  .action(
-    async (opts: { proposalId?: string; latest?: boolean; yes?: boolean; preview?: boolean; quiet?: boolean }) => {
-      try {
-        const ok = await runApply({
-          proposalId: opts.proposalId,
-          latest: !!opts.latest,
-          yes: !!opts.yes,
-          preview: !!opts.preview,
-          quiet: !!opts.quiet,
-        });
-        if (!ok) process.exit(1);
-      } catch (err) {
-        console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
-        process.exit(1);
-      }
-    }
-  );
-
-program
-  .command("mcp:run")
-  .description("Run MCP workflow end-to-end: heal -> review -> apply")
-  .option("-t, --trace <path>", "Path to trace.zip or a test-results directory")
-  .option("--run-id <runId>", "Run ID to filter failures by")
-  .option("--preview", "Preview changes without writing files")
-  .option("-y, --yes", "Skip confirmation prompt when supported")
-  .option("-q, --quiet", "Minimal output")
-  .action(
-    async (opts: { trace?: string; runId?: string; preview?: boolean; yes?: boolean; quiet?: boolean }) => {
-      try {
-        const ok = await runRun({
-          trace: opts.trace,
-          runId: opts.runId,
-          preview: !!opts.preview,
-          yes: !!opts.yes,
-          quiet: !!opts.quiet,
-        });
-        if (!ok) process.exit(1);
-      } catch (err) {
-        console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
-        process.exit(1);
-      }
-    }
-  );
 
 // Help command with banner
 program.command("help").description("Show help information").action(async () => {
