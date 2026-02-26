@@ -13,6 +13,3 @@ src/testdata/runState.lock
 
 # Pilot CLI runtime artifacts (preflight logs, etc.)
 .pilot/
-
-# Windows reserved device name (cannot be indexed by Git)
-nul
