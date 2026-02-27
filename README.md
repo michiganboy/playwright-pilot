@@ -18,7 +18,7 @@ Playwright Pilot is designed for:
 
 ## Key Features
 
-- **CLI Scaffolding** - Resource-scoped commands (`feature:add`, `page:add`, `spec:add`, `factory:add`, `trace:open`) automate framework setup
+- **CLI Scaffolding** - Resource-scoped commands (`feature:add`, `page:add`, `suite:add`, `factory:add`, `trace:open`) automate framework setup
 - **Page Objects + Fixtures** - Automatic wiring of page objects into Playwright fixtures
 - **AutoPilot Workflows** - Cross-application actions like `autoPilot.login()` that work across features
 - **Mailosaur Integration** - Invisible MFA automation, email content validation, spam analysis, and deliverability testing (see [docs/mailosaur.md](./docs/mailosaur.md))

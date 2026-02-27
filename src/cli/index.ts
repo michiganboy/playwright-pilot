@@ -85,39 +85,12 @@ program
   });
 
 program
-  .command("spec:add")
-  .description("Create a new suite spec under an existing feature")
-  .option("-f, --feature <featureKey>", "Feature key (must already exist)")
-  .action(async (options: { feature?: string }) => {
-    try {
-      await addSpec(options.feature);
-    } catch (err) {
-      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
-      process.exit(1);
-    }
-  });
-
-program
   .command("suite:add")
   .description("Create a new suite under an existing feature")
   .option("-f, --feature <featureKey>", "Feature key (must already exist)")
   .action(async (options: { feature?: string }) => {
     try {
       await addSpec(options.feature);
-    } catch (err) {
-      console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
-      process.exit(1);
-    }
-  });
-
-program
-  .command("spec:delete")
-  .description("Delete a suite spec and remove it from feature config")
-  .option("-f, --feature <featureKey>", "Feature key")
-  .option("-s, --suite <suiteName>", "Suite name")
-  .action(async (options: { feature?: string; suite?: string }) => {
-    try {
-      await deleteSpec(options.feature, options.suite);
     } catch (err) {
       console.error(error(`Error: ${err instanceof Error ? err.message : String(err)}`));
       process.exit(1);
