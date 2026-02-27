@@ -30,7 +30,6 @@ Examples:
 
 - `feature:add` - Add a feature
 - `page:add` - Add a page object
-- `spec:add` - Add a spec (legacy alias for `suite:add`)
 - `factory:add` - Add a factory
 - `trace:open` - Open trace report
 
@@ -44,8 +43,6 @@ Examples:
 | `page:delete [name]`    | Delete page and unwire fixtures                            | `[name]` - Page name (prompts if omitted)    | -                                                                                                                  |
 | `suite:add`             | Create suite under existing feature                        | -                                            | `--feature <key>` - Feature key (prompts if omitted)                                                               |
 | `suite:delete`          | Delete suite and remove from feature config                | -                                            | `--feature <key>` - Feature key<br>`--suite <name>` - Suite name                                                   |
-| `spec:add`              | Legacy alias for `suite:add`                               | -                                            | `--feature <key>` - Feature key                                                                                    |
-| `spec:delete`           | Legacy alias for `suite:delete`                            | -                                            | `--feature <key>` - Feature key<br>`--suite <name>` - Suite name                                                   |
 | `factory:add [name]`    | Create data factory, builder, and model (if needed)        | `[name]` - Model name (prompts if omitted)   | -                                                                                                                  |
 | `factory:delete [name]` | Delete factory and remove export                           | `[name]` - Factory name (prompts if omitted) | -                                                                                                                  |
 | `trace:open`            | Open Playwright HTML report in browser                     | -                                            | -                                                                                                                  |
@@ -202,8 +199,6 @@ npm run pilot suite:add
 # Or specify the feature
 npm run pilot suite:add --feature "user-management"
 ```
-
-**Note:** `spec:add` is a legacy alias for `suite:add`. Both commands do the same thing.
 
 **Suite Creation Flow:**
 
@@ -395,8 +390,6 @@ npm run pilot suite:delete
 # Or specify feature and suite
 npm run pilot suite:delete --feature "user-management" --suite "User Login"
 ```
-
-**Note:** `spec:delete` is a legacy alias for `suite:delete`. Both commands do the same thing.
 
 **What Gets Deleted:**
 
