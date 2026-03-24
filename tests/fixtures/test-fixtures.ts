@@ -16,10 +16,13 @@ import { setTestContext, clearTestContext } from "../../src/testdata/tools/conte
 import type { set as setFn, get as getFn } from "../../src/utils/dataStore";
 import type { MfaHelper } from "../../src/integrations/mailosaur/types";
 import { MailosaurClient, createMfaHelper } from "../../src/integrations/mailosaur/MailosaurClient";
+import type { SalesforceAuthProvider } from "../../src/integrations/salesforce";
+import { createSalesforceAuthIfConfigured } from "../../src/integrations/salesforce";
 
 type Fixtures = {
   autoPilot: AutoPilot;
   loginPilot: LoginPilot;
+  salesforceAuth: SalesforceAuthProvider | undefined;
   set: typeof setFn;
   get: typeof getFn;
   systemValues: Record<string, unknown>;
@@ -79,9 +82,14 @@ export const test = base.extend<Fixtures>({
     await use(pilot);
   },
 
-  autoPilot: async ({ page, loginPilot }, use) => {
+  salesforceAuth: async ({}, use) => {
+    const provider = await createSalesforceAuthIfConfigured();
+    await use(provider);
+  },
+
+  autoPilot: async ({ page, loginPilot, salesforceAuth }, use) => {
     const mfaHelper = createMfaHelperIfConfigured();
-    await use(new AutoPilot(page, loginPilot, mfaHelper));
+    await use(new AutoPilot(page, loginPilot, mfaHelper, salesforceAuth ?? undefined));
   },
 
   // DataStore fixtures

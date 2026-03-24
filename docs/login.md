@@ -380,7 +380,18 @@ loginPilot: async ({ loginPage }, use) => {
 1. Set `LOGIN_EMAIL` and `LOGIN_PASSWORD` in `.env`
 2. Pass credentials to `autoPilot.login(email, password)`
 
+## Alternative Auth Modes
+
+### Salesforce JWT-Frontdoor
+
+For Salesforce UI automation, Playwright Pilot supports a non-interactive JWT-based auth mode that bypasses the login form entirely. When `SF_AUTH_MODE=jwt-frontdoor` is set, `autoPilot.login()` uses the OAuth2 JWT bearer flow to obtain an access token and navigates through `frontdoor.jsp` to establish a browser session.
+
+This mode coexists with the standard LoginPilot flow. When the Salesforce env vars are not set, all existing login behavior is unchanged.
+
+See [salesforce-auth.md](./salesforce-auth.md) for full setup and configuration.
+
 ## See Also
 
 - [README.md](./README.md) - Main documentation and bootstrap guide
 - [testdata.md](./testdata.md) - Test data system (may reference stored system users for login)
+- [salesforce-auth.md](./salesforce-auth.md) - Salesforce JWT-frontdoor authentication

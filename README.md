@@ -22,6 +22,7 @@ Playwright Pilot is designed for:
 - **Page Objects + Fixtures** - Automatic wiring of page objects into Playwright fixtures
 - **AutoPilot Workflows** - Cross-application actions like `autoPilot.login()` that work across features
 - **Mailosaur Integration** - Invisible MFA automation, email content validation, spam analysis, and deliverability testing (see [docs/mailosaur.md](./docs/mailosaur.md))
+- **Salesforce Auth** - Non-interactive Salesforce UI authentication via JWT bearer flow + frontdoor.jsp session bootstrap (see [docs/salesforce-auth.md](./docs/salesforce-auth.md))
 - **ADO Test Plan Mapping** - Features map to test plans, suites to test suites, tests to test cases (see [docs/ado.md](./docs/ado.md))
 - **Test Data System** - Models, builders (mimicry-js), factories, and split dataStore (system._ → canonical, test._ → runtime) (see [docs/testdata.md](./docs/testdata.md), [docs/tools.md](./docs/tools.md), and [docs/builders.md](./docs/builders.md))
 - **Trace Capture + ADO Attachments** - Automatic trace recording and configurable artifact uploads to Azure DevOps (see [docs/artifacts.md](./docs/artifacts.md))
@@ -34,7 +35,9 @@ playwright-pilot/
 ├── src/
 │   ├── cli/                    # CLI commands and templates
 │   ├── integrations/
-│   │   └── azureDevops/        # Azure DevOps sync integration
+│   │   ├── azureDevops/        # Azure DevOps sync integration
+│   │   ├── mailosaur/          # Email/MFA testing integration
+│   │   └── salesforce/         # Salesforce JWT-frontdoor auth
 │   ├── pages/                  # Page Object Model classes
 │   ├── testdata/
 │   │   ├── factories/         # Test data factories
@@ -136,6 +139,11 @@ PILOT_KEEP_RUNSTATE=false
 | `ADO_ATTACH_LAST_RUN`        | `true`         | Attach .last-run.json metadata                 |
 | `PILOT_SEED`                 | Auto-generated | Fixed seed for reproducible test data          |
 | `PILOT_KEEP_RUNSTATE`        | `false`        | Preserve runState.json between test runs       |
+| `SF_AUTH_MODE`               | -              | Set to `jwt-frontdoor` to enable Salesforce auth |
+| `SF_CLIENT_ID`               | -              | Salesforce Connected App consumer key          |
+| `SF_USERNAME`                | -              | Salesforce username to authenticate as         |
+| `SF_PRIVATE_KEY_PATH`        | -              | Path to PEM private key file                   |
+| `SF_LOGIN_URL`               | `https://login.salesforce.com` | Salesforce login URL (`test.salesforce.com` for sandboxes) |
 
 ### Step 4: Create Your First Feature
 
@@ -418,6 +426,38 @@ npm run sync:ado
 - **Run preflight check**: `npm run pilot preflight`
 - **Execute tests**: `npm run pilot takeoff`
 
+## Salesforce UI Authentication
+
+Playwright Pilot supports fully automated Salesforce UI authentication using the OAuth2 JWT bearer flow and frontdoor.jsp session bootstrap. This enables Playwright tests to authenticate into a Salesforce org non-interactively, without a login form.
+
+When `SF_AUTH_MODE=jwt-frontdoor` is configured, `autoPilot.login()` transparently uses the Salesforce auth flow:
+
+```typescript
+test("[10001] User can view Salesforce home", async ({ page, autoPilot }) => {
+  await autoPilot.login(); // Uses JWT-frontdoor when SF_AUTH_MODE is set
+
+  await expect(page).toHaveURL(/lightning/);
+});
+```
+
+**Quick setup:**
+
+1. Create a Salesforce Connected App with OAuth + Digital Signatures enabled
+2. Upload your certificate to the Connected App
+3. Add these to your `.env`:
+
+```env
+SF_AUTH_MODE=jwt-frontdoor
+SF_CLIENT_ID=3MVG9...your_consumer_key
+SF_USERNAME=admin@myorg.test
+SF_LOGIN_URL=https://test.salesforce.com
+SF_PRIVATE_KEY_PATH=./keys/server.key
+```
+
+When `SF_AUTH_MODE` is not set, all existing login behavior via LoginPilot remains unchanged. The two auth modes coexist without conflict.
+
+See [docs/salesforce-auth.md](./docs/salesforce-auth.md) for complete setup, prerequisites, CI configuration, and troubleshooting.
+
 ## Email & MFA Testing with Mailosaur
 
 Playwright Pilot includes built-in Mailosaur integration for testing email workflows and automating MFA login flows.
@@ -456,6 +496,7 @@ See [docs/mailosaur.md](./docs/mailosaur.md) for complete setup, fixture API ref
 - **[docs/ado.md](./docs/ado.md)** - Azure DevOps mapping philosophy and structure
 - **[docs/testdata.md](./docs/testdata.md)** - Models, factories, and dataStore usage
 - **[docs/login.md](./docs/login.md)** - AutoPilot and LoginPilot architecture
+- **[docs/salesforce-auth.md](./docs/salesforce-auth.md)** - Salesforce JWT-frontdoor authentication
 - **[docs/mailosaur.md](./docs/mailosaur.md)** - Mailosaur integration for MFA and email testing
 - **[docs/artifacts.md](./docs/artifacts.md)** - Trace capture and ADO attachments
 

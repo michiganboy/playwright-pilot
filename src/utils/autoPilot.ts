@@ -2,6 +2,11 @@
 import type { Page } from "@playwright/test";
 import type { MfaHelper, SystemUser, LoginOptions } from "../integrations/mailosaur/types";
 
+// Extension point for non-interactive auth strategies (e.g., Salesforce JWT-frontdoor).
+export interface AuthProvider {
+  authenticate(page: Page): Promise<void>;
+}
+
 export type LoginPilot = {
   // Navigates to the login page (or ensures the login form is visible).
   goto(): Promise<void>;
@@ -32,12 +37,19 @@ export class AutoPilot {
   constructor(
     private page: Page,
     private loginPilot?: LoginPilot,
-    private mfaHelper?: MfaHelper
+    private mfaHelper?: MfaHelper,
+    private authProvider?: AuthProvider
   ) {}
 
   // Logs into the application using the configured login pilot.
   // Accepts either username/password strings (legacy) or a SystemUser object.
+  // When an AuthProvider is configured (e.g., Salesforce JWT-frontdoor), delegates to it.
   async login(userOrUsername?: string | SystemUser, passwordOrOptions?: string | LoginOptions): Promise<void> {
+    if (this.authProvider) {
+      await this.authProvider.authenticate(this.page);
+      return;
+    }
+
     if (!this.loginPilot) {
       throw new Error(
         "Login is not configured. Provide a LoginPilot implementation in your fixtures to enable autoPilot.login()."

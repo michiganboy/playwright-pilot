@@ -5,6 +5,7 @@ module.exports = {
     '<rootDir>/src/cli/__tests__',
     '<rootDir>/src/testdata/__tests__',
     '<rootDir>/src/utils/__tests__',
+    '<rootDir>/src/integrations/salesforce/__tests__',
   ],
   testMatch: ['**/*.test.ts'],
   maxWorkers: 1, // Run tests serially to avoid memory issues
@@ -26,6 +27,7 @@ module.exports = {
     'src/cli/**/*.ts',
     'src/testdata/**/*.ts',
     'src/utils/**/*.ts',
+    'src/integrations/salesforce/**/*.ts',
     '!src/**/*.d.ts',
     '!src/**/__tests__/**',
   ],
