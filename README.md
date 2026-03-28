@@ -140,7 +140,7 @@ PILOT_KEEP_RUNSTATE=false
 | `PILOT_SEED`                 | Auto-generated | Fixed seed for reproducible test data          |
 | `PILOT_KEEP_RUNSTATE`        | `false`        | Preserve runState.json between test runs       |
 | `SF_AUTH_MODE`               | -              | Set to `jwt-frontdoor` to enable Salesforce auth |
-| `SF_CLIENT_ID`               | -              | Salesforce Connected App consumer key          |
+| `SF_CLIENT_ID`               | -              | Salesforce External Client App consumer key    |
 | `SF_USERNAME`                | -              | Salesforce username to authenticate as         |
 | `SF_PRIVATE_KEY_PATH`        | -              | Path to PEM private key file                   |
 | `SF_LOGIN_URL`               | `https://login.salesforce.com` | Salesforce login URL (`test.salesforce.com` for sandboxes) |
@@ -442,9 +442,9 @@ test("[10001] User can view Salesforce home", async ({ page, autoPilot }) => {
 
 **Quick setup:**
 
-1. Create a Salesforce Connected App with OAuth + Digital Signatures enabled
-2. Upload your certificate to the Connected App
-3. Add these to your `.env`:
+1. Generate an RSA key pair and upload the certificate (`.crt`) to a Salesforce External Client App
+2. Enable the JWT bearer flow and pre-authorize the target user
+3. Add the env vars to your `.env`:
 
 ```env
 SF_AUTH_MODE=jwt-frontdoor
@@ -456,7 +456,7 @@ SF_PRIVATE_KEY_PATH=./keys/server.key
 
 When `SF_AUTH_MODE` is not set, all existing login behavior via LoginPilot remains unchanged. The two auth modes coexist without conflict.
 
-See [docs/salesforce-auth.md](./docs/salesforce-auth.md) for complete setup, prerequisites, CI configuration, and troubleshooting.
+See [docs/salesforce-auth.md](./docs/salesforce-auth.md) for full External Client App setup, environment variables, CI configuration, and troubleshooting.
 
 ## Email & MFA Testing with Mailosaur
 
